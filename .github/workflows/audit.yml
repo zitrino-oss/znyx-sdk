@@ -1,0 +1,82 @@
+name: Dependency Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 8 * * 1" # Weekly Monday 8:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  pip-audit:
+    name: pip-audit (python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Audit
+        working-directory: python
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install pip-audit .
+          pip-audit
+
+  npm-audit:
+    name: npm audit (typescript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: typescript/package-lock.json
+      - name: Audit production dependencies
+        working-directory: typescript
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high
+
+  govulncheck:
+    name: govulncheck (go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+      - name: Audit
+        working-directory: go
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go mod download
+          govulncheck ./...
+
+  cargo-audit:
+    name: cargo audit (rust)
+    runs-on: ubuntu-latest
+    # crates.io downloads on GitHub runners intermittently hit transport errors;
+    # disable HTTP/2 multiplexing and raise retries to make them non-fatal.
+    env:
+      CARGO_HTTP_MULTIPLEXING: "false"
+      CARGO_NET_RETRY: "10"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cargo-audit
+        run: |
+          for attempt in 1 2 3; do
+            cargo install cargo-audit --locked && exit 0
+            echo "cargo install failed (attempt $attempt) — retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::cargo install cargo-audit failed after 3 attempts" >&2
+          exit 1
+      - name: Audit
+        working-directory: rust
+        run: cargo audit

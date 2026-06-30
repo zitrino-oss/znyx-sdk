@@ -1,0 +1,22 @@
+---
+name: Feature request
+about: Suggest an idea or enhancement
+title: ''
+labels: enhancement
+assignees: ''
+---
+
+**Affected SDK(s)**
+Which language SDK(s) this applies to (or "all").
+
+**Problem / motivation**
+What problem would this solve? Who benefits?
+
+**Proposed solution**
+A clear and concise description of what you want to happen.
+
+**Alternatives considered**
+Any alternative solutions or features you've considered.
+
+**Additional context**
+Anything else that helps explain the request.

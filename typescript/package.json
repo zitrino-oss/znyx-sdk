@@ -1,0 +1,48 @@
+{
+  "name": "@znyx/sdk",
+  "version": "1.1.2",
+  "description": "TypeScript SDK for the ZNYX Runtime API — enterprise-grade AI guardrails for production LLM applications",
+  "keywords": [
+    "ai-guardrails",
+    "llm-safety",
+    "prompt-injection",
+    "jailbreak-detection",
+    "pii-detection",
+    "guardrails",
+    "llm",
+    "ai-safety",
+    "znyx"
+  ],
+  "homepage": "https://znyx.ai",
+  "bugs": {
+    "url": "https://github.com/GuideLite/guardrails/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GuideLite/guardrails.git",
+    "directory": "sdks/typescript"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0",
+    "@types/node": "^22.0.0",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0",
+    "ts-jest": "^29.0.0"
+  },
+  "files": ["dist"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

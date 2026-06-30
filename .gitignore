@@ -1,0 +1,32 @@
+# Node / TypeScript
+node_modules/
+dist/
+*.tgz
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+.venv/
+
+# Java
+target/
+*.class
+
+# Go
+/bin/
+
+# Rust
+/target/
+
+# C#
+bin/
+obj/
+
+# Ruby
+*.gem
+/pkg/
+
+# OS
+.DS_Store

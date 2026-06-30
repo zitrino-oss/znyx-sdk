@@ -1,0 +1,6 @@
+# Default owners for everything in the repo.
+# Requires the @zitrino-oss/maintainers team to exist in the org.
+*       @zitrino-oss/maintainers
+
+# CI, release pipeline, and repository governance
+/.github/   @zitrino-oss/maintainers
