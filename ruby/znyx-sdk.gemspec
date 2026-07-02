@@ -7,7 +7,7 @@ Gem::Specification.new do |s|
   s.authors     = ["Zitrino"]
   s.email       = ["znyx-team@zitrino.com"]
 
-  s.required_ruby_version = ">= 2.7"
+  s.required_ruby_version = ">= 3.0"
 
   s.files = Dir["lib/**/*.rb"]
 
