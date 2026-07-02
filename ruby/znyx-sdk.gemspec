@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = "znyx-sdk"
-  s.version     = "1.0.0"
+  s.version     = "1.0.1"
   s.summary     = "Official Ruby SDK for the ZNYX Runtime guardrails API"
   s.homepage    = "https://znyx.ai"
   s.license     = "MIT"
