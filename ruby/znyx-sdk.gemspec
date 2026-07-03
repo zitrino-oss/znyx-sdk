@@ -5,7 +5,7 @@ Gem::Specification.new do |s|
   s.homepage    = "https://znyx.ai"
   s.license     = "MIT"
   s.authors     = ["Zitrino"]
-  s.email       = ["znyx-team@zitrino.com"]
+  s.email       = ["community@zitrino.com"]
 
   s.required_ruby_version = ">= 3.0"
 
