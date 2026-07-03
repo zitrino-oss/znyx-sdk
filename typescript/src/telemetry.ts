@@ -16,12 +16,13 @@
  * best-effort and must never block, slow, or break the calling application.
  */
 
-// Default target is the ZNYX prod control plane. Override with
-// ZNYX_HEARTBEAT_URL to point at preprod (https://pprd-cp.znyx.ai/...),
-// a self-hosted control plane, or a local CP for testing.
+// Telemetry endpoint. Empty by default so this OSS SDK never phones home. Set
+// ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL) to a control plane you operate to
+// opt in. When empty, no ping is sent regardless of ZNYX_TELEMETRY.
 const ENDPOINT =
-  (typeof process !== 'undefined' && process.env?.ZNYX_HEARTBEAT_URL) ||
-  'https://cp.znyx.ai/v1/install-telemetry';
+  (typeof process !== 'undefined' &&
+    (process.env?.ZNYX_TELEMETRY_URL || process.env?.ZNYX_HEARTBEAT_URL)) ||
+  '';
 const HEARTBEAT_INTERVAL_MS = 86_400_000; // 24h
 const SOURCE = 'node-sdk';
 const VERSION = '1.1.0';
@@ -48,7 +49,7 @@ export async function maybeSendInstallPing(): Promise<void> {
   attempted = true;
 
   try {
-    if (!isNode() || !enabled()) return;
+    if (!ENDPOINT || !isNode() || !enabled()) return;
 
     // Dynamically import node builtins so browser bundles don't pull them in.
     const fs = await import('node:fs');

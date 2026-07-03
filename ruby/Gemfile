@@ -1,5 +1,0 @@
-source "https://rubygems.org"
-
-# Dependencies are declared in znyx-sdk.gemspec; this Gemfile sources them so
-# Bundler (and Dependabot's bundler ecosystem) can resolve and update them.
-gemspec

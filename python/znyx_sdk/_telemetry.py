@@ -23,13 +23,10 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-_ENDPOINT = os.getenv(
-    # Default target is the ZNYX prod control plane. Override with
-    # ZNYX_HEARTBEAT_URL to point at preprod (https://pprd-cp.znyx.ai/...),
-    # a self-hosted control plane, or a local CP for testing.
-    "ZNYX_HEARTBEAT_URL",
-    "https://cp.znyx.ai/v1/install-telemetry",
-)
+# Telemetry endpoint. Empty by default so this OSS SDK never phones home. Set
+# ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL) to a control plane you operate to
+# opt in. When empty, no ping is sent regardless of ZNYX_TELEMETRY.
+_ENDPOINT = os.getenv("ZNYX_TELEMETRY_URL") or os.getenv("ZNYX_HEARTBEAT_URL") or ""
 _STATE_FILE = Path.home() / ".znyx" / "sdk-state.json"
 _HEARTBEAT_INTERVAL = 86400  # seconds (24h) — don't ping more often than this
 _SOURCE = "python-sdk"
@@ -95,7 +92,7 @@ def maybe_send_install_ping() -> None:
     _attempted = True
 
     try:
-        if not _enabled():
+        if not _ENDPOINT or not _enabled():
             return
 
         state = _load_state()

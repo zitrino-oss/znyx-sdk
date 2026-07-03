@@ -14,7 +14,7 @@ from znyx_sdk.models import (
 )
 from znyx_sdk.exceptions import GuardrailsError, GuardrailsTimeoutError, GuardrailsAuthError
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 __all__ = [
     "GuardrailsClient",
     "GuardrailsSyncClient",
