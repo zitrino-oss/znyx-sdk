@@ -24,7 +24,7 @@ jobs:
       image: semgrep/semgrep
     steps:
       - uses: actions/checkout@v4
-      # p/security-audit + p/secrets are multi-language and cover all seven SDKs.
+      # p/security-audit + p/secrets are multi-language and cover all six SDKs.
       - run: semgrep scan --config p/security-audit --config p/secrets --error .
 
   secret-scan:
@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [python, javascript-typescript, ruby]
+        language: [python, javascript-typescript, ruby, java-kotlin, csharp]
     steps:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v3

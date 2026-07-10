@@ -25,7 +25,8 @@ const ENDPOINT =
   '';
 const HEARTBEAT_INTERVAL_MS = 86_400_000; // 24h
 const SOURCE = 'node-sdk';
-const VERSION = '1.1.0';
+// Keep in sync with the "version" field in package.json.
+const VERSION = '1.1.3';
 
 const DISCLOSURE =
   '[@znyx/sdk] Anonymous usage telemetry is on (install id, SDK version, OS - ' +

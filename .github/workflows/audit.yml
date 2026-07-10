@@ -43,21 +43,6 @@ jobs:
           npm ci
           npm audit --omit=dev --audit-level=high
 
-  govulncheck:
-    name: govulncheck (go)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "stable"
-      - name: Audit
-        working-directory: go
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          go mod download
-          govulncheck ./...
-
   cargo-audit:
     name: cargo audit (rust)
     runs-on: ubuntu-latest

@@ -54,8 +54,12 @@ impl ZnyxClient {
     pub fn with_api_key(base_url: impl Into<String>, api_key: Option<&str>) -> Self {
         let mut headers = reqwest::header::HeaderMap::new();
         if let Some(key) = api_key {
-            let value = format!("Bearer {}", key).parse().expect("invalid api key");
-            headers.insert(reqwest::header::AUTHORIZATION, value);
+            // Skip the header on a non-ASCII/invalid key rather than panicking
+            // the caller's process; the runtime will reject the unauthenticated
+            // request with a clear 401.
+            if let Ok(value) = format!("Bearer {}", key).parse() {
+                headers.insert(reqwest::header::AUTHORIZATION, value);
+            }
         }
 
         let client = Client::builder()

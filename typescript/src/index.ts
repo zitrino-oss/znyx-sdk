@@ -306,7 +306,7 @@ export class GuardrailsClient {
     if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
 
     const resp = await fetch(
-      `${this.controlPlaneUrl}/v1/orgs/${options.orgId}/benchmarks`,
+      `${this.controlPlaneUrl}/v1/orgs/${encodeURIComponent(options.orgId)}/benchmarks`,
       { method: 'POST', headers, body: JSON.stringify(body) },
     );
 
@@ -343,7 +343,7 @@ export class GuardrailsClient {
     if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
 
     const resp = await fetch(
-      `${this.controlPlaneUrl}/v1/orgs/${options.orgId}/traces/${options.traceId}/replay`,
+      `${this.controlPlaneUrl}/v1/orgs/${encodeURIComponent(options.orgId)}/traces/${encodeURIComponent(options.traceId)}/replay`,
       { method: 'POST', headers, body: JSON.stringify(body) },
     );
 
@@ -390,7 +390,7 @@ export class GuardrailsClient {
 
     try {
       const resp = await fetch(
-        `${this.controlPlaneUrl}/v1/orgs/${options.orgId}/schemas/${options.schemaName}/validate`,
+        `${this.controlPlaneUrl}/v1/orgs/${encodeURIComponent(options.orgId)}/schemas/${encodeURIComponent(options.schemaName)}/validate`,
         { method: 'POST', headers, body: JSON.stringify(body) },
       );
       if (!resp.ok) {

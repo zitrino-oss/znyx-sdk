@@ -24,18 +24,6 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 
-  # Go SDK
-  - package-ecosystem: gomod
-    directory: "/go"
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 10
-    labels: ["dependencies", "go"]
-    groups:
-      gomod-minor-patch:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
-
   # Java SDK
   - package-ecosystem: maven
     directory: "/java"

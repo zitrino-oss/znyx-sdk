@@ -15,10 +15,15 @@
 
   <licenses>
     <license>
-      <name>MIT License</name>
-      <url>https://opensource.org/licenses/MIT</url>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
     </license>
   </licenses>
+
+  <scm>
+    <url>https://github.com/zitrino-oss/znyx-sdk</url>
+    <connection>scm:git:https://github.com/zitrino-oss/znyx-sdk.git</connection>
+  </scm>
 
   <properties>
     <maven.compiler.source>11</maven.compiler.source>

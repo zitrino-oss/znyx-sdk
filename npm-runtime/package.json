@@ -14,7 +14,12 @@
     "README.md"
   ],
   "keywords": ["llm", "guardrails", "ai", "safety", "znyx"],
-  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zitrino-oss/znyx-sdk.git",
+    "directory": "npm-runtime"
+  },
+  "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
   },
