@@ -15,12 +15,12 @@
   ],
   "homepage": "https://znyx.ai",
   "bugs": {
-    "url": "https://github.com/GuideLite/guardrails/issues"
+    "url": "https://github.com/zitrino-oss/znyx-sdk/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/GuideLite/guardrails.git",
-    "directory": "sdks/typescript"
+    "url": "git+https://github.com/zitrino-oss/znyx-sdk.git",
+    "directory": "typescript"
   },
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -38,7 +38,7 @@
     "ts-jest": "^29.0.0"
   },
   "files": ["dist"],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=18"
   },

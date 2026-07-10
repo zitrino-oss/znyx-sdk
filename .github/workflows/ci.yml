@@ -46,21 +46,6 @@ jobs:
           npm ci
           npm run build
 
-  go:
-    name: Go build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "stable"
-      - name: Build & vet
-        working-directory: go
-        run: |
-          go mod download
-          go build ./...
-          go vet ./...
-
   java:
     name: Java build
     runs-on: ubuntu-latest

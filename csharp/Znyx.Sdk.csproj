@@ -11,8 +11,8 @@
     <Authors>Zitrino</Authors>
     <Description>Official .NET SDK for the ZNYX Runtime guardrails API</Description>
     <PackageProjectUrl>https://znyx.ai</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/zitrino/znyx-dotnet-sdk</RepositoryUrl>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/zitrino-oss/znyx-sdk</RepositoryUrl>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageTags>znyx;guardrails;llm;ai;safety</PackageTags>
   </PropertyGroup>
 

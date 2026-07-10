@@ -10,7 +10,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.HexFormat;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
@@ -151,7 +150,10 @@ public class ZnyxClient {
     private static String newRequestId() {
         byte[] b = new byte[4];
         RNG.nextBytes(b);
-        return "req_" + HexFormat.of().formatHex(b);
+        // Java 11-compatible hex encoding (HexFormat is Java 17+).
+        StringBuilder sb = new StringBuilder("req_");
+        for (byte x : b) sb.append(String.format("%02x", x));
+        return sb.toString();
     }
 
     // ── Builder ───────────────────────────────────────────────────────────────

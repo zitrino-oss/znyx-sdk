@@ -2,6 +2,7 @@
 import json
 import uuid
 from typing import AsyncIterator, List, Optional, Dict, Any
+from urllib.parse import quote
 
 import httpx
 
@@ -233,7 +234,7 @@ class GuardrailsClient:
         if bundle_id:
             payload["bundle_id"] = bundle_id
 
-        url = f"{base}/v1/orgs/{org_id}/benchmarks"
+        url = f"{base}/v1/orgs/{quote(org_id, safe='')}/benchmarks"
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(url, json=payload, headers=self._headers())
             if resp.status_code >= 400:
@@ -266,7 +267,7 @@ class GuardrailsClient:
         if policy_version:
             payload["policy_version"] = policy_version
 
-        url = f"{base}/v1/orgs/{org_id}/traces/{trace_id}/replay"
+        url = f"{base}/v1/orgs/{quote(org_id, safe='')}/traces/{quote(trace_id, safe='')}/replay"
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(url, json=payload, headers=self._headers())
             if resp.status_code >= 400:
@@ -316,7 +317,7 @@ class GuardrailsClient:
         if schema_version is not None:
             payload["version"] = schema_version
 
-        url = f"{base}/v1/orgs/{org_id}/schemas/{schema_name}/validate"
+        url = f"{base}/v1/orgs/{quote(org_id, safe='')}/schemas/{quote(schema_name, safe='')}/validate"
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 resp = await client.post(url, json=payload, headers=self._headers())

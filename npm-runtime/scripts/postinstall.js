@@ -55,7 +55,11 @@ function download(url, dest) {
     function fetch(u) {
       https.get(u, (res) => {
         if (res.statusCode === 301 || res.statusCode === 302) {
-          return fetch(res.headers.location);
+          const location = res.headers.location || '';
+          if (!location.startsWith('https://')) {
+            return reject(new Error(`Refusing non-HTTPS redirect to ${location}`));
+          }
+          return fetch(location);
         }
         if (res.statusCode !== 200) {
           return reject(new Error(`HTTP ${res.statusCode} downloading ${u}`));

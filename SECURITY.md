@@ -29,5 +29,7 @@ on the `main` branch.
   configure; they do not store credentials. Pass API keys via environment
   variables or your secret manager — never hard-code them.
 - **Transport.** Always point SDKs at an HTTPS Runtime endpoint in production.
-- **Telemetry.** The SDKs send a single anonymous install ping (no PII, no
-  request content); opt out with `ZNYX_TELEMETRY=false`.
+- **Telemetry.** Off by default — the SDKs never phone home unless you set
+  `ZNYX_TELEMETRY_URL` to a receiver you operate. When configured, they send a
+  single anonymous install ping (no PII, no request content), which you can
+  disable with `ZNYX_TELEMETRY=false`.

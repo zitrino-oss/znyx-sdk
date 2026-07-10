@@ -46,4 +46,4 @@ docker run -p 8080:8080 znyx/runtime
 
 ## License
 
-MIT
+Apache-2.0
