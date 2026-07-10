@@ -14,7 +14,6 @@ For security issues, do **not** open a public issue — see [SECURITY.md](SECURI
 |----------|-----------|-------|
 | Python | `python/` | `pip install .` |
 | TypeScript | `typescript/` | `npm ci && npm run build` |
-| Go | `go/` | `go build ./...` |
 | Java | `java/` | `mvn -B compile` |
 | C# | `csharp/` | `dotnet build` |
 | Ruby | `ruby/` | `gem build znyx-sdk.gemspec` |

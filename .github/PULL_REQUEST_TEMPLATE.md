@@ -4,7 +4,7 @@
 
 ## Affected SDK(s)
 
-<!-- e.g. python, typescript, go, java, csharp, ruby, rust -->
+<!-- e.g. python, typescript, java, csharp, ruby, rust -->
 
 ## Related issue
 

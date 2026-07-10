@@ -26,6 +26,7 @@ const PKG = require('../package.json');
 const VERSION = PKG.version;
 const GITHUB_REPO = 'zitrino-oss/znyx-runtime';
 const RELEASE_BASE = `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}`;
+const DOWNLOAD_TIMEOUT_MS = 60_000;
 
 const PLATFORM_MAP = {
   'darwin-arm64': 'znyx-runtime-darwin-arm64',
@@ -34,6 +35,20 @@ const PLATFORM_MAP = {
   'linux-arm64':  'znyx-runtime-linux-arm64',
   'win32-x64':    'znyx-runtime-windows-x64.exe',
 };
+
+// Pinned, committed SHA256 checksums — the source of truth for binary
+// authenticity. When an entry exists for the current version + binary we verify
+// against it and FAIL CLOSED on any mismatch, without trusting the remote
+// .sha256 (which lives in the same release and so cannot attest to it).
+//
+// Populate at release time, e.g.:
+//   KNOWN_CHECKSUMS['1.0.1'] = {
+//     'znyx-runtime-darwin-arm64': '<sha256>',
+//     ...
+//   };
+// Until an entry is present we fall back to the remote .sha256 (transport-
+// integrity only) and print a warning so the gap is visible.
+const KNOWN_CHECKSUMS = {};
 
 function getPlatformKey() {
   return `${os.platform()}-${os.arch()}`;
@@ -52,13 +67,15 @@ function getBinaryPath() {
 function download(url, dest) {
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(dest);
+    file.on('error', reject);
     function fetch(u) {
-      https.get(u, (res) => {
+      const req = https.get(u, (res) => {
         if (res.statusCode === 301 || res.statusCode === 302) {
           const location = res.headers.location || '';
           if (!location.startsWith('https://')) {
             return reject(new Error(`Refusing non-HTTPS redirect to ${location}`));
           }
+          res.resume(); // drain the redirect response before following
           return fetch(location);
         }
         if (res.statusCode !== 200) {
@@ -66,7 +83,12 @@ function download(url, dest) {
         }
         res.pipe(file);
         file.on('finish', () => file.close(resolve));
-      }).on('error', reject);
+      });
+      req.on('error', reject);
+      // Guard against a hung connection stalling `npm install` indefinitely.
+      req.setTimeout(DOWNLOAD_TIMEOUT_MS, () => {
+        req.destroy(new Error(`Timed out after ${DOWNLOAD_TIMEOUT_MS}ms downloading ${u}`));
+      });
     }
     fetch(url);
   });
@@ -96,19 +118,36 @@ async function main() {
   const checksumUrl = `${RELEASE_BASE}/${binaryName}.sha256`;
   const binaryDest = getBinaryPath();
   const checksumDest = binaryDest + '.sha256';
+  const pinned = (KNOWN_CHECKSUMS[VERSION] || {})[binaryName];
 
   console.log(`[znyx] Downloading ZNYX Runtime v${VERSION} for ${getPlatformKey()}...`);
 
   try {
-    await download(binaryUrl, binaryDest);
-    await download(checksumUrl, checksumDest);
+    // Ensure the destination dir exists (it may be absent in a fresh install).
+    fs.mkdirSync(path.dirname(binaryDest), { recursive: true });
 
-    const expected = fs.readFileSync(checksumDest, 'utf8').trim().split(/\s+/)[0];
+    await download(binaryUrl, binaryDest);
+
+    let expected;
+    if (pinned) {
+      // Authenticity: verify against the committed hash, ignore the remote one.
+      expected = pinned;
+    } else {
+      // No pinned hash yet — fall back to the release's own .sha256, which only
+      // attests to transport integrity, not authenticity.
+      await download(checksumUrl, checksumDest);
+      expected = fs.readFileSync(checksumDest, 'utf8').trim().split(/\s+/)[0];
+      console.warn(
+        `[znyx] Warning: no pinned checksum for v${VERSION}/${binaryName}; ` +
+        `verifying transport integrity only.`
+      );
+    }
+
     const actual = sha256File(binaryDest);
 
     if (actual !== expected) {
       fs.unlinkSync(binaryDest);
-      fs.unlinkSync(checksumDest);
+      if (fs.existsSync(checksumDest)) fs.unlinkSync(checksumDest);
       throw new Error(
         `SHA256 mismatch!\n  expected: ${expected}\n  actual:   ${actual}\n` +
         `Binary removed. Re-run npm install to retry.`
@@ -116,8 +155,8 @@ async function main() {
     }
 
     fs.chmodSync(binaryDest, 0o755);
-    fs.unlinkSync(checksumDest);
-    console.log(`[znyx] Binary installed and verified ✓`);
+    if (fs.existsSync(checksumDest)) fs.unlinkSync(checksumDest);
+    console.log(`[znyx] Binary installed and verified ✓${pinned ? ' (pinned checksum)' : ''}`);
   } catch (err) {
     console.error(`\n[znyx] Could not download binary: ${err.message}`);
     console.error(

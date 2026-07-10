@@ -57,8 +57,16 @@ impl ZnyxClient {
             // Skip the header on a non-ASCII/invalid key rather than panicking
             // the caller's process; the runtime will reject the unauthenticated
             // request with a clear 401.
-            if let Ok(value) = format!("Bearer {}", key).parse() {
-                headers.insert(reqwest::header::AUTHORIZATION, value);
+            match format!("Bearer {}", key).parse() {
+                Ok(value) => {
+                    headers.insert(reqwest::header::AUTHORIZATION, value);
+                }
+                Err(_) => {
+                    eprintln!(
+                        "[znyx] Warning: API key contains characters that are not valid in an \
+                         HTTP header; sending requests unauthenticated (expect 401)."
+                    );
+                }
             }
         }
 

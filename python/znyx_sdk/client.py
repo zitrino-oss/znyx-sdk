@@ -92,7 +92,9 @@ class GuardrailsClient:
                     continue
                 raise GuardrailsError(str(e))
 
-        raise last_error
+        # Defensive: every terminal path above returns or raises, so this is
+        # only reached if the retry loop is ever restructured.
+        raise last_error or GuardrailsError("Request failed after retries")
 
     async def evaluate_input(
         self,
@@ -287,6 +289,7 @@ class GuardrailsClient:
         org_id: str,
         schema_version: Optional[int] = None,
         control_plane_url: Optional[str] = None,
+        fail_closed: bool = False,
     ) -> Dict[str, Any]:
         """Validate LLM output against a named output schema contract.
 
@@ -299,6 +302,11 @@ class GuardrailsClient:
             org_id: Organisation UUID.
             schema_version: Optional schema version (latest if omitted).
             control_plane_url: Base URL of the control plane.
+            fail_closed: When the control plane is unreachable or errors, treat
+                the output as *invalid* (``valid=False``) instead of passing it
+                through. Defaults to ``False`` (fail-open) for backwards
+                compatibility; set ``True`` for safety-critical paths where
+                unvalidated output must not be accepted.
 
         Returns:
             Dict with ``valid`` (bool), ``errors`` (list of field errors),
@@ -312,6 +320,16 @@ class GuardrailsClient:
         except _json.JSONDecodeError as e:
             return {"valid": False, "errors": [{"path": "/", "message": f"Invalid JSON: {e}"}], "parsed": None}
 
+        def _unavailable() -> Dict[str, Any]:
+            if fail_closed:
+                return {
+                    "valid": False,
+                    "errors": [{"path": "/", "message": "Server validation unavailable"}],
+                    "parsed": parsed,
+                    "warning": "Server validation unavailable",
+                }
+            return {"valid": True, "errors": [], "parsed": parsed, "warning": "Server validation unavailable"}
+
         base = (control_plane_url or self.base_url).rstrip("/")
         payload: Dict[str, Any] = {"text": text}
         if schema_version is not None:
@@ -322,11 +340,10 @@ class GuardrailsClient:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 resp = await client.post(url, json=payload, headers=self._headers())
                 if resp.status_code >= 400:
-                    # Fallback: return local parse result without server validation
-                    return {"valid": True, "errors": [], "parsed": parsed, "warning": "Server validation unavailable"}
+                    return _unavailable()
                 return resp.json()
         except Exception:
-            return {"valid": True, "errors": [], "parsed": parsed, "warning": "Server validation unavailable"}
+            return _unavailable()
 
     async def parse_typed_output(
         self,
@@ -336,15 +353,18 @@ class GuardrailsClient:
         org_id: str,
         schema_version: Optional[int] = None,
         control_plane_url: Optional[str] = None,
+        fail_closed: bool = False,
     ) -> Dict[str, Any]:
         """Parse and validate LLM output, returning the typed result or raising.
 
         Convenience wrapper around ``validate_output_contract`` that raises
-        ``GuardrailsError`` if validation fails.
+        ``GuardrailsError`` if validation fails. Pass ``fail_closed=True`` to
+        also raise when the control plane is unreachable.
         """
         result = await self.validate_output_contract(
             text, schema_name, org_id=org_id,
             schema_version=schema_version, control_plane_url=control_plane_url,
+            fail_closed=fail_closed,
         )
         if not result.get("valid", False):
             errors = result.get("errors", [])
