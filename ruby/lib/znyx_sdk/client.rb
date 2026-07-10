@@ -24,6 +24,13 @@ module ZnyxSdk
       @uri     = URI.parse(base_url.chomp("/"))
       @api_key = api_key
       @timeout = timeout
+
+      # Anonymous, opt-out install telemetry (ZNYX_TELEMETRY=false to disable).
+      begin
+        Telemetry.maybe_send_install_ping
+      rescue StandardError
+        # telemetry must never break client construction
+      end
     end
 
     # Evaluates a user prompt before sending it to the LLM.

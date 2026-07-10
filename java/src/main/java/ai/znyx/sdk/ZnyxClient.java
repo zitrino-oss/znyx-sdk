@@ -41,6 +41,13 @@ public class ZnyxClient {
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
         this.mapper = new ObjectMapper();
+
+        // Anonymous, opt-out install telemetry (ZNYX_TELEMETRY=false to disable).
+        try {
+            Telemetry.maybeSendInstallPing();
+        } catch (Exception ignored) {
+            // telemetry must never break client construction
+        }
     }
 
     // ── Synchronous API ───────────────────────────────────────────────────────

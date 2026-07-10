@@ -38,6 +38,16 @@ public sealed class ZnyxClient : IDisposable
         _http.Timeout = TimeSpan.FromSeconds(10);
         if (!string.IsNullOrEmpty(apiKey))
             _http.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+
+        // Anonymous, opt-out install telemetry (ZNYX_TELEMETRY=false to disable).
+        try
+        {
+            Telemetry.MaybeSendInstallPing();
+        }
+        catch
+        {
+            // telemetry must never break client construction
+        }
     }
 
     /// <summary>Evaluates a user prompt before sending it to the LLM.</summary>

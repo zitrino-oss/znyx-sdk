@@ -58,13 +58,23 @@ The SDKs talk to a self-hosted [ZNYX Runtime](https://github.com/zitrino-oss/zny
 
 ## Telemetry
 
-Telemetry is **off by default**. The SDKs do not phone home unless you configure a
-receiver. To opt in to an anonymous install ping (no PII, no request content),
-point it at your own endpoint:
+The SDKs send **anonymous install telemetry** (on by default) so we can see which
+languages, versions, and platforms are in use. It collects a random `install_id`,
+SDK version, source, OS/arch, language runtime version, and a run count — **no PII,
+no request content, no tenant data**. One first-run ping plus at most one ping per
+24h, fire-and-forget. Pings go to the auditable endpoint:
+
+```
+https://cp.znyx.ai/v1/install-telemetry
+```
+
+Opt out at any time:
 
 ```bash
-export ZNYX_TELEMETRY_URL="https://your-telemetry-host/v1/install-telemetry"
+export ZNYX_TELEMETRY=false
 ```
+
+Full details — every field, timing, and the opt-out — are in [TELEMETRY.md](./TELEMETRY.md).
 
 ## Security
 
