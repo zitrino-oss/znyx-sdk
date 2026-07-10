@@ -23,10 +23,15 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Telemetry endpoint. Empty by default so this OSS SDK never phones home. Set
-# ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL) to a control plane you operate to
-# opt in. When empty, no ping is sent regardless of ZNYX_TELEMETRY.
-_ENDPOINT = os.getenv("ZNYX_TELEMETRY_URL") or os.getenv("ZNYX_HEARTBEAT_URL") or ""
+# Telemetry endpoint. Defaults to the ZNYX production receiver so anonymous
+# install telemetry is on out of the box (opt-out, fully transparent — see
+# TELEMETRY.md). Override with ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL) to
+# point at a control plane you operate, or opt out with ZNYX_TELEMETRY=false.
+_ENDPOINT = (
+    os.getenv("ZNYX_TELEMETRY_URL")
+    or os.getenv("ZNYX_HEARTBEAT_URL")
+    or "https://cp.znyx.ai/v1/install-telemetry"
+)
 _STATE_FILE = Path.home() / ".znyx" / "sdk-state.json"
 _HEARTBEAT_INTERVAL = 86400  # seconds (24h) — don't ping more often than this
 _SOURCE = "python-sdk"

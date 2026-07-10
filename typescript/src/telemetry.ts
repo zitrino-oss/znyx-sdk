@@ -16,13 +16,14 @@
  * best-effort and must never block, slow, or break the calling application.
  */
 
-// Telemetry endpoint. Empty by default so this OSS SDK never phones home. Set
-// ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL) to a control plane you operate to
-// opt in. When empty, no ping is sent regardless of ZNYX_TELEMETRY.
+// Telemetry endpoint. Defaults to the ZNYX production receiver so anonymous
+// install telemetry is on out of the box (opt-out, fully transparent — see
+// TELEMETRY.md). Override with ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL) to
+// point at a control plane you operate, or opt out with ZNYX_TELEMETRY=false.
 const ENDPOINT =
   (typeof process !== 'undefined' &&
     (process.env?.ZNYX_TELEMETRY_URL || process.env?.ZNYX_HEARTBEAT_URL)) ||
-  '';
+  'https://cp.znyx.ai/v1/install-telemetry';
 const HEARTBEAT_INTERVAL_MS = 86_400_000; // 24h
 const SOURCE = 'node-sdk';
 
@@ -122,6 +123,7 @@ export async function maybeSendInstallPing(): Promise<void> {
       os: process.platform,
       os_version: os.release(),
       arch: process.arch,
+      node_version: process.versions.node,
       run_count: runCount,
       timestamp: nowIso,
     };
