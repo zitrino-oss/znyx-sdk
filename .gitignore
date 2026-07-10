@@ -14,15 +14,12 @@ build/
 target/
 *.class
 
-# Go
-/bin/
-
 # Rust
 /target/
 
-# C#
-bin/
-obj/
+# C# (anchored so npm-runtime/bin/ — which ships the CLI shim — is NOT ignored)
+csharp/bin/
+csharp/obj/
 
 # Ruby
 *.gem

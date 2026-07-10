@@ -10,6 +10,6 @@ You may obtain a copy of the License at
     http://www.apache.org/licenses/LICENSE-2.0
 
 This repository contains client SDKs for the ZNYX Runtime API in multiple
-languages (Python, TypeScript, Go, Java, C#, Ruby, Rust), each distributed
+languages (Python, TypeScript, Java, C#, Ruby, Rust), each distributed
 under its own subdirectory and bundling third-party dependencies declared in
 that language's manifest, each under its own license.

@@ -25,8 +25,19 @@ const ENDPOINT =
   '';
 const HEARTBEAT_INTERVAL_MS = 86_400_000; // 24h
 const SOURCE = 'node-sdk';
-// Keep in sync with the "version" field in package.json.
-const VERSION = '1.1.3';
+
+// Read the version from package.json at runtime so it can never drift from the
+// published version. dist/telemetry.js resolves ../package.json to the package
+// root; best-effort, since telemetry must never throw.
+function resolveVersion(): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require('../package.json').version || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+const VERSION = resolveVersion();
 
 const DISCLOSURE =
   '[@znyx/sdk] Anonymous usage telemetry is on (install id, SDK version, OS - ' +

@@ -241,6 +241,24 @@ export class GuardrailsClient {
     return crypto.randomUUID?.() || Math.random().toString(36).slice(2);
   }
 
+  /** fetch with an AbortController-based timeout, normalizing aborts to GuardrailsTimeoutError. */
+  private async fetchWithTimeout(
+    url: string,
+    init: RequestInit,
+    timeoutMs: number,
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...init, signal: controller.signal });
+    } catch (err: any) {
+      if (err?.name === 'AbortError') throw new GuardrailsTimeoutError();
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async evaluateInput(options: EvaluateOptions): Promise<EvaluationResult> {
     return this.request('/v1/evaluate/input', {
       request_id: options.requestId || this.uuid(),
@@ -305,9 +323,10 @@ export class GuardrailsClient {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
 
-    const resp = await fetch(
+    const resp = await this.fetchWithTimeout(
       `${this.controlPlaneUrl}/v1/orgs/${encodeURIComponent(options.orgId)}/benchmarks`,
       { method: 'POST', headers, body: JSON.stringify(body) },
+      120_000, // benchmark runs can take a while
     );
 
     if (!resp.ok) {
@@ -342,9 +361,10 @@ export class GuardrailsClient {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
 
-    const resp = await fetch(
+    const resp = await this.fetchWithTimeout(
       `${this.controlPlaneUrl}/v1/orgs/${encodeURIComponent(options.orgId)}/traces/${encodeURIComponent(options.traceId)}/replay`,
       { method: 'POST', headers, body: JSON.stringify(body) },
+      30_000,
     );
 
     if (!resp.ok) {
@@ -373,6 +393,12 @@ export class GuardrailsClient {
     schemaName: string;
     orgId: string;
     schemaVersion?: number;
+    /**
+     * When the control plane is unreachable or errors, treat the output as
+     * invalid instead of passing it through. Defaults to false (fail-open) for
+     * backwards compatibility; set true on safety-critical paths.
+     */
+    failClosed?: boolean;
   }): Promise<{ valid: boolean; errors: Array<{ path: string; message: string }>; parsed: any }> {
     // Parse locally first
     let parsed: any;
@@ -382,6 +408,11 @@ export class GuardrailsClient {
       return { valid: false, errors: [{ path: '/', message: `Invalid JSON: ${e.message}` }], parsed: null };
     }
 
+    const unavailable = () =>
+      options.failClosed
+        ? { valid: false, errors: [{ path: '/', message: 'Server validation unavailable' }], parsed }
+        : { valid: true, errors: [], parsed };
+
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
 
@@ -389,16 +420,17 @@ export class GuardrailsClient {
     if (options.schemaVersion !== undefined) body.version = options.schemaVersion;
 
     try {
-      const resp = await fetch(
+      const resp = await this.fetchWithTimeout(
         `${this.controlPlaneUrl}/v1/orgs/${encodeURIComponent(options.orgId)}/schemas/${encodeURIComponent(options.schemaName)}/validate`,
         { method: 'POST', headers, body: JSON.stringify(body) },
+        this.timeout,
       );
       if (!resp.ok) {
-        return { valid: true, errors: [], parsed };
+        return unavailable();
       }
       return await resp.json() as { valid: boolean; errors: Array<{ path: string; message: string }>; parsed: any };
     } catch {
-      return { valid: true, errors: [], parsed };
+      return unavailable();
     }
   }
 
@@ -411,6 +443,7 @@ export class GuardrailsClient {
     schemaName: string;
     orgId: string;
     schemaVersion?: number;
+    failClosed?: boolean;
   }): Promise<T> {
     const result = await this.validateOutputContract(options);
     if (!result.valid) {
