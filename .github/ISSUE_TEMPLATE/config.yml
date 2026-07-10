@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Questions & discussions
+    url: https://github.com/zitrino-oss/znyx-sdk/discussions
+    about: Ask usage questions, share ideas, or get help — please don't open a bug for these.
+  - name: Documentation
+    url: https://znyx.ai/documentation
+    about: Guides, API reference, and the detector list.
   - name: Security vulnerability
     url: https://github.com/zitrino-oss/znyx-sdk/security/advisories/new
     about: Please report security issues privately — do NOT open a public issue.
