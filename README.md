@@ -21,6 +21,8 @@ These SDKs only *call* a running ZNYX runtime; they do no detection themselves. 
 | Ruby | `znyx-sdk` (RubyGems) | `gem install znyx-sdk` | [`ruby/`](./ruby) |
 | Rust | `znyx-sdk` (crates.io) | `cargo add znyx-sdk` | [`rust/`](./rust) |
 
+> **Not an SDK:** [`npm-runtime/`](./npm-runtime) publishes [`@znyx/runtime`](https://www.npmjs.com/package/@znyx/runtime) — an npm wrapper that installs the ZNYX Runtime `znyx` CLI binary. It's a convenience installer for the runtime, not a client SDK. See the [runtime repo](https://github.com/zitrino-oss/znyx-runtime) for the engine itself.
+
 ## Quickstart
 
 **Python**
