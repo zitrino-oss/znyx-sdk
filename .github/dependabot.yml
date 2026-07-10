@@ -19,6 +19,12 @@ updates:
       interval: weekly
     open-pull-requests-limit: 10
     labels: ["dependencies", "typescript"]
+    # TypeScript 7+ is blocked by ts-jest's peer range (typescript ">=4.3 <7").
+    # Ignore major bumps until the test toolchain supports them; remove this
+    # once ts-jest ships a TS 7-compatible release.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-patch:
         patterns: ["*"]
