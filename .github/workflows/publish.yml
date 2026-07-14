@@ -116,7 +116,7 @@ jobs:
       id-token: write # npm provenance
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: "20", registry-url: "https://registry.npmjs.org" }
       - name: Set version
         working-directory: typescript
@@ -137,7 +137,7 @@ jobs:
       id-token: write # npm provenance
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: "20", registry-url: "https://registry.npmjs.org" }
       - name: Set version
         working-directory: npm-runtime
