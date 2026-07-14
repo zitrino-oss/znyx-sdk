@@ -33,12 +33,27 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      package:
+        description: "Package to publish (manual runs only; a Release publishes all)"
+        type: choice
+        default: all
+        options:
+          - all
+          - python
+          - typescript
+          - npm-runtime
+          - rust
+          - csharp
+          - ruby
+          - java
 
 permissions:
   contents: read
 
 jobs:
   python:
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","python"]'), github.event.inputs.package) }}
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -56,6 +71,7 @@ jobs:
           packages-dir: python/dist
 
   typescript:
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","typescript"]'), github.event.inputs.package) }}
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -72,6 +88,7 @@ jobs:
         run: npm publish --provenance --access public
 
   npm-runtime:
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","npm-runtime"]'), github.event.inputs.package) }}
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -86,6 +103,7 @@ jobs:
         run: npm publish --provenance --access public
 
   rust:
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","rust"]'), github.event.inputs.package) }}
     runs-on: ubuntu-latest
     environment: release
     steps:
@@ -100,6 +118,7 @@ jobs:
         run: cargo publish
 
   csharp:
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","csharp"]'), github.event.inputs.package) }}
     runs-on: ubuntu-latest
     environment: release
     steps:
@@ -114,6 +133,7 @@ jobs:
           dotnet nuget push "out/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
 
   ruby:
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","ruby"]'), github.event.inputs.package) }}
     runs-on: ubuntu-latest
     environment: release
     steps:
@@ -130,6 +150,7 @@ jobs:
           gem push znyx-sdk-*.gem
 
   java:
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","java"]'), github.event.inputs.package) }}
     runs-on: ubuntu-latest
     environment: release
     steps:
