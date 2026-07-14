@@ -41,6 +41,20 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      package:
+        description: "Package to publish (manual runs only; a Release publishes all)"
+        type: choice
+        default: all
+        options:
+          - all
+          - python
+          - typescript
+          - npm-runtime
+          - rust
+          - csharp
+          - ruby
+          - java
 
 permissions:
   contents: read
@@ -66,7 +80,11 @@ jobs:
           echo "Publishing version: $VERSION"
 
   python:
+<<<<<<< vfix
     needs: version
+=======
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","python"]'), github.event.inputs.package) }}
+>>>>>>> main
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -88,7 +106,11 @@ jobs:
           packages-dir: python/dist
 
   typescript:
+<<<<<<< vfix
     needs: version
+=======
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","typescript"]'), github.event.inputs.package) }}
+>>>>>>> main
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -108,7 +130,11 @@ jobs:
         run: npm publish --provenance --access public
 
   npm-runtime:
+<<<<<<< vfix
     needs: version
+=======
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","npm-runtime"]'), github.event.inputs.package) }}
+>>>>>>> main
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -126,7 +152,11 @@ jobs:
         run: npm publish --provenance --access public
 
   rust:
+<<<<<<< vfix
     needs: version
+=======
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","rust"]'), github.event.inputs.package) }}
+>>>>>>> main
     runs-on: ubuntu-latest
     environment: release
     steps:
@@ -135,17 +165,24 @@ jobs:
         # rustup is preinstalled on ubuntu-latest; avoids the third-party
         # dtolnay/rust-toolchain action, which the org policy disallows.
         run: rustup toolchain install stable --profile minimal --no-self-update && rustup default stable
+<<<<<<< vfix
       - name: Set version
         env:
           VERSION: ${{ needs.version.outputs.version }}
         run: sed -i -E "s/^version = \".*\"/version = \"${VERSION}\"/" rust/Cargo.toml
+=======
+>>>>>>> main
       - working-directory: rust
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo publish --allow-dirty
 
   csharp:
+<<<<<<< vfix
     needs: version
+=======
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","csharp"]'), github.event.inputs.package) }}
+>>>>>>> main
     runs-on: ubuntu-latest
     environment: release
     steps:
@@ -164,7 +201,11 @@ jobs:
           dotnet nuget push "out/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
 
   ruby:
+<<<<<<< vfix
     needs: version
+=======
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","ruby"]'), github.event.inputs.package) }}
+>>>>>>> main
     runs-on: ubuntu-latest
     environment: release
     steps:
@@ -185,7 +226,11 @@ jobs:
           gem push znyx-sdk-*.gem
 
   java:
+<<<<<<< vfix
     needs: version
+=======
+    if: ${{ github.event_name == 'release' || contains(fromJSON('["all","java"]'), github.event.inputs.package) }}
+>>>>>>> main
     runs-on: ubuntu-latest
     environment: release
     steps:
