@@ -90,7 +90,10 @@ jobs:
     environment: release
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Set up Rust toolchain
+        # rustup is preinstalled on ubuntu-latest; avoids the third-party
+        # dtolnay/rust-toolchain action, which the org policy disallows.
+        run: rustup toolchain install stable --profile minimal --no-self-update && rustup default stable
       - working-directory: rust
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
