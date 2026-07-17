@@ -20,6 +20,15 @@
     </license>
   </licenses>
 
+  <!-- Maven Central requires at least one developer entry. Edit to taste. -->
+  <developers>
+    <developer>
+      <name>Znyx SDK Team</name>
+      <organization>Zitrino</organization>
+      <organizationUrl>https://znyx.ai</organizationUrl>
+    </developer>
+  </developers>
+
   <scm>
     <url>https://github.com/zitrino-oss/znyx-sdk</url>
     <connection>scm:git:https://github.com/zitrino-oss/znyx-sdk.git</connection>
@@ -41,6 +50,7 @@
 
   <build>
     <plugins>
+      <!-- Sources jar (required by Maven Central). -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
@@ -51,6 +61,61 @@
             <goals><goal>jar-no-fork</goal></goals>
           </execution>
         </executions>
+      </plugin>
+
+      <!-- Javadoc jar (required by Maven Central). -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.11.2</version>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals><goal>jar</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- GPG signatures (required by Maven Central). The signing key and
+           passphrase are provided by the CI job via actions/setup-java. The
+           loopback pinentry mode below lets gpg read the passphrase from the
+           environment non-interactively. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>3.2.7</version>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals><goal>sign</goal></goals>
+          </execution>
+        </executions>
+        <configuration>
+          <gpgArguments>
+            <arg>--pinentry-mode</arg>
+            <arg>loopback</arg>
+          </gpgArguments>
+        </configuration>
+      </plugin>
+
+      <!-- Publishes to the Sonatype Central Publisher Portal. With
+           extensions=true this takes over the `deploy` phase, replacing the
+           default maven-deploy-plugin (which is what produced the
+           "repository element was not specified" error). Credentials come
+           from the server whose id matches publishingServerId, configured in
+           the CI settings.xml. Flip autoPublish to true for hands-off releases;
+           left false so the first releases can be reviewed in the portal UI
+           before going live. -->
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.9.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <publishingServerId>central</publishingServerId>
+          <autoPublish>false</autoPublish>
+        </configuration>
       </plugin>
     </plugins>
   </build>
