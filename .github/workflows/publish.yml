@@ -110,6 +110,9 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: python/dist
+          # Idempotent re-runs: skip instead of failing with a 400 "file already
+          # exists" if this version's files are already on PyPI.
+          skip-existing: true
 
   typescript:
     if: ${{ github.event_name == 'release' || contains(fromJSON('["all","typescript"]'), github.event.inputs.package) }}
