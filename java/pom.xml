@@ -99,6 +99,20 @@
         </configuration>
       </plugin>
 
+      <!-- Belt-and-suspenders: explicitly disable the stock maven-deploy-plugin.
+           The central-publishing-maven-plugin below takes over the `deploy`
+           phase via extensions=true, but disabling the default deployer here
+           guarantees that if the extension is ever inactive the build simply
+           skips deploy instead of failing with the misleading
+           "repository element was not specified in distributionManagement" error. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+
       <!-- Publishes to the Sonatype Central Publisher Portal. With
            extensions=true this takes over the `deploy` phase, replacing the
            default maven-deploy-plugin (which is what produced the
