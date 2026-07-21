@@ -107,11 +107,22 @@ jobs:
       - run: python -m pip install --upgrade build twine
       - run: python -m build python
       - run: twine check python/dist/*
+      - name: Skip if this version is already on PyPI
+        id: check
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/znyx-sdk/${VERSION}/json")
+          if [ "$code" = "200" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::znyx-sdk ${VERSION} is already on PyPI — skipping."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: pypa/gh-action-pypi-publish@release/v1
+        if: steps.check.outputs.published != 'true'
         with:
           packages-dir: python/dist
-          # Idempotent re-runs: skip instead of failing with a 400 "file already
-          # exists" if this version's files are already on PyPI.
           skip-existing: true
 
   typescript:
@@ -126,6 +137,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with: { node-version: "20", registry-url: "https://registry.npmjs.org" }
+      - run: npm install -g npm@latest
       - name: Set version
         working-directory: typescript
         run: npm version "${{ needs.version.outputs.version }}" --no-git-tag-version --allow-same-version
@@ -161,6 +173,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with: { node-version: "20", registry-url: "https://registry.npmjs.org" }
+      - run: npm install -g npm@latest
       - name: Set version
         working-directory: npm-runtime
         run: npm version "${{ needs.version.outputs.version }}" --no-git-tag-version --allow-same-version
@@ -202,10 +215,10 @@ jobs:
         env:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
-          code=$(curl -sS -o /dev/null -w '%{http_code}' \
-            -H 'User-Agent: znyx-sdk-ci (github.com/zitrino-oss/znyx-sdk)' \
-            "https://crates.io/api/v1/crates/znyx-sdk/${VERSION}")
-          if [ "$code" = "200" ]; then
+          # Check the crate metadata endpoint and look for the version in the response.
+          if curl -sS -H 'User-Agent: znyx-sdk-ci (github.com/zitrino-oss/znyx-sdk)' \
+            "https://crates.io/api/v1/crates/znyx-sdk" 2>/dev/null \
+            | grep -q "\"num\":\"${VERSION}\""; then
             echo "published=true" >> "$GITHUB_OUTPUT"
             echo "::notice::znyx-sdk ${VERSION} is already on crates.io — skipping."
           else
