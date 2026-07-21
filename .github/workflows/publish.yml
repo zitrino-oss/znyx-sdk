@@ -128,7 +128,21 @@ jobs:
         run: npm version "${{ needs.version.outputs.version }}" --no-git-tag-version --allow-same-version
       - working-directory: typescript
         run: npm ci && npm run build
-      - working-directory: typescript
+      - name: Skip if this version is already on npm
+        id: check
+        working-directory: typescript
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          VERSION="${{ needs.version.outputs.version }}"
+          if [ -n "$(npm view "${PKG}@${VERSION}" version 2>/dev/null)" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${PKG}@${VERSION} is already published — skipping."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish to npm
+        if: steps.check.outputs.published != 'true'
+        working-directory: typescript
         env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
         run: npm publish --provenance --access public
 
@@ -147,7 +161,21 @@ jobs:
       - name: Set version
         working-directory: npm-runtime
         run: npm version "${{ needs.version.outputs.version }}" --no-git-tag-version --allow-same-version
-      - working-directory: npm-runtime
+      - name: Skip if this version is already on npm
+        id: check
+        working-directory: npm-runtime
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          VERSION="${{ needs.version.outputs.version }}"
+          if [ -n "$(npm view "${PKG}@${VERSION}" version 2>/dev/null)" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${PKG}@${VERSION} is already published — skipping."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish to npm
+        if: steps.check.outputs.published != 'true'
+        working-directory: npm-runtime
         env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
         run: npm publish --provenance --access public
 
@@ -166,7 +194,23 @@ jobs:
         env:
           VERSION: ${{ needs.version.outputs.version }}
         run: sed -i -E "s/^version = \".*\"/version = \"${VERSION}\"/" rust/Cargo.toml
-      - working-directory: rust
+      - name: Skip if this version is already on crates.io
+        id: check
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H 'User-Agent: znyx-sdk-ci (github.com/zitrino-oss/znyx-sdk)' \
+            "https://crates.io/api/v1/crates/znyx-sdk/${VERSION}")
+          if [ "$code" = "200" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::znyx-sdk ${VERSION} is already on crates.io — skipping."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish to crates.io
+        if: steps.check.outputs.published != 'true'
+        working-directory: rust
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         # --allow-dirty: the Set version step edits Cargo.toml without committing.
@@ -190,7 +234,8 @@ jobs:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           dotnet pack -c Release -o out
-          dotnet nuget push "out/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+          # --skip-duplicate: succeed instead of failing if this version is already on NuGet.
+          dotnet nuget push "out/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
 
   ruby:
     if: ${{ github.event_name == 'release' || contains(fromJSON('["all","ruby"]'), github.event.inputs.package) }}
@@ -205,7 +250,20 @@ jobs:
         env:
           VERSION: ${{ needs.version.outputs.version }}
         run: sed -i -E "s/(s\.version[[:space:]]*=[[:space:]]*\").*(\")/\1${VERSION}\2/" ruby/*.gemspec
-      - working-directory: ruby
+      - name: Skip if this version is already on RubyGems
+        id: check
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          if gem list -r -e -a znyx-sdk 2>/dev/null | tr ' ,()' '\n' | grep -qxF "$VERSION"; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::znyx-sdk ${VERSION} is already on RubyGems — skipping."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build & push gem
+        if: steps.check.outputs.published != 'true'
+        working-directory: ruby
         env:
           RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
         run: |
@@ -233,7 +291,22 @@ jobs:
       - name: Set version
         working-directory: java
         run: mvn -B -ntp versions:set -DnewVersion="${{ needs.version.outputs.version }}" -DgenerateBackupPoms=false
-      - working-directory: java
+      - name: Skip if this version is already on Maven Central
+        id: check
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          url="https://repo1.maven.org/maven2/ai/znyx/znyx-sdk/${VERSION}/znyx-sdk-${VERSION}.pom"
+          code=$(curl -sS -o /dev/null -w '%{http_code}' "$url")
+          if [ "$code" = "200" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::ai.znyx:znyx-sdk ${VERSION} is already on Maven Central — skipping."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy to Maven Central
+        if: steps.check.outputs.published != 'true'
+        working-directory: java
         env:
           MAVEN_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
