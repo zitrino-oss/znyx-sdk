@@ -9,12 +9,17 @@
 #   Create a GitHub Release tagged `vX.Y.Z` (e.g. v1.2.0); the `version` job
 #   strips the leading `v` and each publish job writes `X.Y.Z` into its manifest
 #   (pyproject.toml / package.json / Cargo.toml / *.csproj / *.gemspec / pom.xml)
-#   before building. To publish manually, run the workflow *against a tag*
-#   (the "Use workflow from" selector) so a version can be derived.
+#   before building. To publish manually, either run the workflow *against a tag*
+#   (the "Use workflow from" selector) so a version can be derived, or run it
+#   against a branch and type the version explicitly in the `version` input.
 #
 # MANUAL RUNS
 #   Actions -> publish -> Run workflow lets you pick a single package to publish
 #   (or "all"). A published GitHub Release always publishes every package.
+#   The optional `version` input lets you publish a specific version (e.g. to
+#   re-publish an older release whose tag predates a workflow/manifest fix): run
+#   the workflow from `main` and set `version` to the number you want. When left
+#   blank the version comes from the tag/ref you run against.
 #
 # HARDENING NOTES
 #   * All jobs run under the `release` GitHub Environment. Create it in
@@ -64,6 +69,11 @@ on:
           - csharp
           - ruby
           - java
+      version:
+        description: "Version to publish, e.g. 1.2.0 (leave blank to use the tag/ref you run against)"
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -78,11 +88,14 @@ jobs:
     steps:
       - id: derive
         env:
-          RAW_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+          # Precedence: explicit manual `version` input > release tag > the ref
+          # the workflow was run against. The input is empty ('') on release runs
+          # and when left blank on manual runs, so it falls through cleanly.
+          RAW_TAG: ${{ github.event.inputs.version || github.event.release.tag_name || github.ref_name }}
         run: |
           VERSION="${RAW_TAG#v}"
           if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.+].+)?$'; then
-            echo "::error::Could not derive a version. Ref/tag '$RAW_TAG' -> '$VERSION' is not valid semver (expected like v1.2.0). Publish by creating a GitHub Release tagged vX.Y.Z, or run the workflow against a tag."
+            echo "::error::Could not derive a version. Ref/tag/input '$RAW_TAG' -> '$VERSION' is not valid semver (expected like v1.2.0). Publish by creating a GitHub Release tagged vX.Y.Z, run the workflow against a tag, or set the 'version' input (e.g. 1.2.0)."
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
