@@ -16,14 +16,30 @@
  * best-effort and must never block, slow, or break the calling application.
  */
 
-// Telemetry endpoint. Defaults to the ZNYX production receiver so anonymous
-// install telemetry is on out of the box (opt-out, fully transparent — see
-// TELEMETRY.md). Override with ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL) to
-// point at a control plane you operate, or opt out with ZNYX_TELEMETRY=false.
-const ENDPOINT =
-  (typeof process !== 'undefined' &&
-    (process.env?.ZNYX_TELEMETRY_URL || process.env?.ZNYX_HEARTBEAT_URL)) ||
-  'https://cp.znyx.ai/v1/install-telemetry';
+const DEFAULT_ENDPOINT = 'https://cp.znyx.ai/v1/install-telemetry';
+
+/**
+ * Where install pings go.
+ *
+ * Defaults to the ZNYX receiver. ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL) overrides it.
+ * Setting either to an EMPTY string removes the destination, which is a distinct outcome
+ * from leaving it unset: with no destination nothing is sent even though this SDK is
+ * opt-out, giving an air-gapped deployment a verifiable guarantee. A `||` chain cannot
+ * express that, because '' and undefined are both falsy.
+ *
+ * NOTE: this SDK is opt-OUT, while the runtime heartbeat is opt-IN. See TELEMETRY.md.
+ */
+function resolveEndpoint(): string {
+  if (typeof process !== 'undefined' && process.env) {
+    for (const name of ['ZNYX_TELEMETRY_URL', 'ZNYX_HEARTBEAT_URL'] as const) {
+      const value = process.env[name];
+      if (value !== undefined) return value.trim();
+    }
+  }
+  return DEFAULT_ENDPOINT;
+}
+
+const ENDPOINT = resolveEndpoint();
 const HEARTBEAT_INTERVAL_MS = 86_400_000; // 24h
 const SOURCE = 'node-sdk';
 

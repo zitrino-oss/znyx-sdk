@@ -23,15 +23,28 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Telemetry endpoint. Defaults to the ZNYX production receiver so anonymous
-# install telemetry is on out of the box (opt-out, fully transparent — see
-# TELEMETRY.md). Override with ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL) to
-# point at a control plane you operate, or opt out with ZNYX_TELEMETRY=false.
-_ENDPOINT = (
-    os.getenv("ZNYX_TELEMETRY_URL")
-    or os.getenv("ZNYX_HEARTBEAT_URL")
-    or "https://cp.znyx.ai/v1/install-telemetry"
-)
+_DEFAULT_ENDPOINT = "https://cp.znyx.ai/v1/install-telemetry"
+
+
+def _resolve_endpoint() -> str:
+    """Where install pings go.
+
+    Defaults to the ZNYX receiver. ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL) overrides it.
+    Setting either to an EMPTY string removes the destination, which is a distinct outcome
+    from leaving it unset: with no destination nothing is sent even though this SDK is
+    opt-out, giving an air-gapped deployment a verifiable guarantee. A plain
+    ``getenv(...) or default`` cannot express that, because "" and unset are both falsy.
+
+    NOTE: this SDK is opt-OUT, while the runtime heartbeat is opt-IN. See TELEMETRY.md.
+    """
+    for name in ("ZNYX_TELEMETRY_URL", "ZNYX_HEARTBEAT_URL"):
+        value = os.getenv(name)
+        if value is not None:
+            return value.strip()
+    return _DEFAULT_ENDPOINT
+
+
+_ENDPOINT = _resolve_endpoint()
 _STATE_FILE = Path.home() / ".znyx" / "sdk-state.json"
 _HEARTBEAT_INTERVAL = 86400  # seconds (24h) — don't ping more often than this
 _SOURCE = "python-sdk"
@@ -46,7 +59,12 @@ _DISCLOSURE = (
 
 
 def _enabled() -> bool:
-    """Telemetry is on unless explicitly disabled (mirrors the runtime)."""
+    """Telemetry is on unless explicitly disabled.
+
+    This is opt-OUT and deliberately does NOT mirror the runtime, whose heartbeat is
+    opt-IN (ZNYX_TELEMETRY defaults to false there). The docstring used to claim parity
+    with the runtime, which was the opposite of the truth. See TELEMETRY.md.
+    """
     val = (os.getenv("ZNYX_TELEMETRY") or os.getenv("GUARDRAILS_TELEMETRY") or "true").lower()
     return val not in ("false", "0", "no")
 

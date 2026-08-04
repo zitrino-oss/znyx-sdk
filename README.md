@@ -68,7 +68,8 @@ no request content, no tenant data**. One first-run ping plus at most one ping p
 https://cp.znyx.ai/v1/install-telemetry
 ```
 
-Opt out at any time:
+Redirect it with `ZNYX_TELEMETRY_URL`, or set that to an empty string to remove the
+destination. Opt out entirely at any time:
 
 ```bash
 export ZNYX_TELEMETRY=false

@@ -39,14 +39,25 @@ the first run, a one-line disclosure is printed to `stderr`.
 
 ## The endpoint
 
-Pings are sent to the ZNYX production receiver:
+Pings are sent to the ZNYX receiver:
 
 ```
 https://cp.znyx.ai/v1/install-telemetry
 ```
 
-You can point telemetry at your own receiver instead by setting
-`ZNYX_TELEMETRY_URL` (or `ZNYX_HEARTBEAT_URL`).
+Point telemetry at your own receiver instead with `ZNYX_TELEMETRY_URL` (or
+`ZNYX_HEARTBEAT_URL`), or set either to an **empty string** to remove the
+destination entirely — with no URL there is nowhere to send and nothing is sent,
+which is verifiable on the wire.
+
+### Enable-defaults differ between the SDKs and the runtime
+
+Worth stating plainly, because the two are not the same:
+
+| Component | Default | Turn it off / on |
+|---|---|---|
+| These SDKs | **on** (opt-out) | `ZNYX_TELEMETRY=false` |
+| ZNYX Runtime heartbeat | **off** (opt-in) | `ZNYX_TELEMETRY=true` |
 
 ## How to opt out
 

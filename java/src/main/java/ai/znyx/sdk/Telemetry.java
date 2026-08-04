@@ -51,15 +51,25 @@ final class Telemetry {
 
     private Telemetry() {}
 
+    /**
+     * Where install pings go.
+     *
+     * Defaults to the ZNYX receiver. ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL) overrides it.
+     * An EMPTY value removes the destination, which is distinct from leaving it unset: with
+     * no destination nothing is sent even though this SDK is opt-out, giving an air-gapped
+     * deployment a verifiable guarantee (the ENDPOINT.isEmpty() guard at the send site).
+     *
+     * The first variable that is SET wins, empty or not. Testing isEmpty() while walking the
+     * chain would fall through to the default and defeat the point.
+     */
     private static String resolveEndpoint() {
-        String url = System.getenv("ZNYX_TELEMETRY_URL");
-        if (url == null || url.isEmpty()) {
-            url = System.getenv("ZNYX_HEARTBEAT_URL");
+        for (String name : new String[] {"ZNYX_TELEMETRY_URL", "ZNYX_HEARTBEAT_URL"}) {
+            String value = System.getenv(name);
+            if (value != null) {
+                return value.trim();
+            }
         }
-        if (url == null || url.isEmpty()) {
-            url = "https://cp.znyx.ai/v1/install-telemetry";
-        }
-        return url;
+        return "https://cp.znyx.ai/v1/install-telemetry";
     }
 
     private static boolean enabled() {

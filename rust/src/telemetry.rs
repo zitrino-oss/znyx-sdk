@@ -31,11 +31,17 @@ static ATTEMPTED: AtomicBool = AtomicBool::new(false);
 /// with `ZNYX_TELEMETRY_URL` (or `ZNYX_HEARTBEAT_URL`), or opt out with
 /// `ZNYX_TELEMETRY=false`.
 fn endpoint() -> String {
-    env::var("ZNYX_TELEMETRY_URL")
-        .ok()
-        .filter(|s| !s.is_empty())
-        .or_else(|| env::var("ZNYX_HEARTBEAT_URL").ok().filter(|s| !s.is_empty()))
-        .unwrap_or_else(|| "https://cp.znyx.ai/v1/install-telemetry".to_string())
+    // Defaults to the ZNYX receiver. ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL) overrides it.
+    // An EMPTY value removes the destination, which is distinct from leaving it unset: with
+    // no destination nothing is sent even though this SDK is opt-out, giving an air-gapped
+    // deployment a verifiable guarantee. Note the absence of a `.filter(|s| !s.is_empty())`
+    // here — that would collapse "" back into the default and defeat the point.
+    for name in ["ZNYX_TELEMETRY_URL", "ZNYX_HEARTBEAT_URL"] {
+        if let Ok(value) = env::var(name) {
+            return value.trim().to_string();
+        }
+    }
+    "https://cp.znyx.ai/v1/install-telemetry".to_string()
 }
 
 fn enabled() -> bool {
