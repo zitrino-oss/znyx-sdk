@@ -25,11 +25,18 @@ module ZnyxSdk
     # install telemetry is on out of the box (opt-out, fully transparent).
     # Override with ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL), or opt out with
     # ZNYX_TELEMETRY=false.
-    ENDPOINT = (
-      (ENV["ZNYX_TELEMETRY_URL"] || "").empty? ? nil : ENV["ZNYX_TELEMETRY_URL"]
-    ) || (
-      (ENV["ZNYX_HEARTBEAT_URL"] || "").empty? ? nil : ENV["ZNYX_HEARTBEAT_URL"]
-    ) || "https://cp.znyx.ai/v1/install-telemetry"
+    #
+    # Defaults to the ZNYX receiver. An EMPTY value removes the destination, which is
+    # distinct from leaving it unset: with no destination nothing is sent even though this
+    # SDK is opt-out, giving an air-gapped deployment a verifiable guarantee. Hence the
+    # nil? checks rather than empty? — the latter would collapse "" back into the default.
+    ENDPOINT = if !ENV["ZNYX_TELEMETRY_URL"].nil?
+                 ENV["ZNYX_TELEMETRY_URL"].strip
+               elsif !ENV["ZNYX_HEARTBEAT_URL"].nil?
+                 ENV["ZNYX_HEARTBEAT_URL"].strip
+               else
+                 "https://cp.znyx.ai/v1/install-telemetry"
+               end
 
     STATE_FILE = File.join(Dir.home, ".znyx", "sdk-state.json")
     HEARTBEAT_INTERVAL = 86_400 # seconds (24h)

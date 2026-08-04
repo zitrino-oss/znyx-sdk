@@ -40,14 +40,26 @@ internal static class Telemetry
     // Only attempt once per process, no matter how many clients are constructed.
     private static int _attempted;
 
+    /// <summary>
+    /// Where install pings go.
+    ///
+    /// Defaults to the ZNYX receiver. ZNYX_TELEMETRY_URL (or ZNYX_HEARTBEAT_URL) overrides it.
+    /// An EMPTY value removes the destination, which is distinct from leaving it unset: with
+    /// no destination nothing is sent even though this SDK is opt-out, giving an air-gapped
+    /// deployment a verifiable guarantee (the IsNullOrEmpty(Endpoint) guard at the send site).
+    ///
+    /// The first variable that is SET wins, empty or not. Testing IsNullOrEmpty while walking
+    /// the chain would fall through to the default and defeat the point.
+    /// </summary>
     private static string ResolveEndpoint()
     {
-        var url = Environment.GetEnvironmentVariable("ZNYX_TELEMETRY_URL");
-        if (string.IsNullOrEmpty(url))
-            url = Environment.GetEnvironmentVariable("ZNYX_HEARTBEAT_URL");
-        if (string.IsNullOrEmpty(url))
-            url = "https://cp.znyx.ai/v1/install-telemetry";
-        return url;
+        foreach (var name in new[] { "ZNYX_TELEMETRY_URL", "ZNYX_HEARTBEAT_URL" })
+        {
+            var value = Environment.GetEnvironmentVariable(name);
+            if (value != null)
+                return value.Trim();
+        }
+        return "https://cp.znyx.ai/v1/install-telemetry";
     }
 
     private static bool Enabled()
