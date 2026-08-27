@@ -1,7 +1,9 @@
 """Async Guardrails client."""
+import asyncio
 import json
 import uuid
-from typing import AsyncIterator, List, Optional, Dict, Any
+import warnings
+from typing import AsyncIterator, List, Optional, Dict, Any, Union
 from urllib.parse import quote
 
 import httpx
@@ -13,7 +15,12 @@ from znyx_sdk.models import (
     ReplayResult,
     StreamEvent,
 )
-from znyx_sdk.exceptions import GuardrailsError, GuardrailsTimeoutError, GuardrailsAuthError
+from znyx_sdk.exceptions import (
+    GuardrailsError,
+    GuardrailsTimeoutError,
+    GuardrailsAuthError,
+    GuardrailsFailOpenWarning,
+)
 
 
 class GuardrailsClient:
@@ -43,6 +50,8 @@ class GuardrailsClient:
         self.api_key = api_key
         self.timeout = timeout
         self.max_retries = max_retries
+        self._client: Optional[httpx.AsyncClient] = None
+        self._client_loop: Optional[asyncio.AbstractEventLoop] = None
 
         # Anonymous, opt-out install telemetry (ZNYX_TELEMETRY=false to disable).
         try:
@@ -57,6 +66,38 @@ class GuardrailsClient:
             headers["Authorization"] = f"Bearer {self.api_key}"
         return headers
 
+    def _ensure_client(self) -> httpx.AsyncClient:
+        """Return the shared AsyncClient, creating it lazily.
+
+        One pooled client per GuardrailsClient instance keeps connections
+        alive across calls. A pool is bound to the event loop it was created
+        on, so if the loop changed (the sync wrapper runs each call in a
+        fresh loop) the stale client is dropped and a new pool started.
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if self._client is None or self._client.is_closed or self._client_loop is not loop:
+            self._client = httpx.AsyncClient(timeout=self.timeout)
+            self._client_loop = loop
+        return self._client
+
+    async def aclose(self) -> None:
+        """Close the underlying HTTP connection pool."""
+        client, self._client, self._client_loop = self._client, None, None
+        if client is not None and not client.is_closed:
+            try:
+                await client.aclose()
+            except Exception:
+                pass
+
+    async def __aenter__(self) -> "GuardrailsClient":
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        await self.aclose()
+
     async def _request(self, method: str, path: str, json: dict) -> dict:
         """Make an HTTP request with retry."""
         url = f"{self.base_url}{path}"
@@ -64,8 +105,8 @@ class GuardrailsClient:
 
         for attempt in range(1 + self.max_retries):
             try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
-                    resp = await client.request(method, url, json=json, headers=self._headers())
+                client = self._ensure_client()
+                resp = await client.request(method, url, json=json, headers=self._headers())
 
                 if resp.status_code == 401:
                     raise GuardrailsAuthError("Authentication failed", status_code=401)
@@ -194,11 +235,182 @@ class GuardrailsClient:
         data = await self._request("POST", "/v1/evaluate/tool", payload)
         return EvaluationResult.from_dict(data)
 
+    @staticmethod
+    def _scope_payload(
+        request_id: Optional[str],
+        tenant_id: str,
+        app_id: str,
+        agent_id: str,
+        env: str,
+        metadata: Optional[Dict[str, Any]],
+        trace_id: Optional[str],
+        session_id: Optional[str],
+        span_id: Optional[str],
+    ) -> Dict[str, Any]:
+        """Common scope/trace fields shared by the per-stage endpoints."""
+        payload: Dict[str, Any] = {
+            "request_id": request_id or str(uuid.uuid4()),
+            "tenant_id": tenant_id,
+            "app_id": app_id,
+            "agent_id": agent_id,
+            "env": env,
+        }
+        if metadata:
+            payload["metadata"] = metadata
+        if trace_id:
+            payload["trace_id"] = trace_id
+        if session_id:
+            payload["session_id"] = session_id
+        if span_id:
+            payload["span_id"] = span_id
+        return payload
+
+    async def evaluate_retrieval(
+        self,
+        chunks: List[Union[str, Dict[str, Any]]],
+        *,
+        scope_enforced_in_query: Optional[bool] = None,
+        tenant_id: str = "default",
+        app_id: str = "default",
+        agent_id: str = "default",
+        env: str = "prod",
+        metadata: Optional[Dict[str, Any]] = None,
+        request_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        span_id: Optional[str] = None,
+    ) -> EvaluationResult:
+        """Evaluate retrieved RAG chunks before they enter the model context.
+
+        Calls ``POST /v1/evaluate/retrieval``. Each chunk is either the chunk
+        text or a dict with ``content`` plus optional ``source_id``, ``score``,
+        ``score_kind`` ("similarity" or "distance"), ``tenant_id`` and
+        ``metadata``.
+
+        Args:
+            chunks: Retrieved chunks, as plain strings or chunk dicts.
+            scope_enforced_in_query: True when tenant scoping was applied
+                inside the index query (leave None if unknown).
+        """
+        payload = self._scope_payload(
+            request_id, tenant_id, app_id, agent_id, env,
+            metadata, trace_id, session_id, span_id,
+        )
+        payload["chunks"] = [
+            c if isinstance(c, dict) else {"content": c} for c in chunks
+        ]
+        if scope_enforced_in_query is not None:
+            payload["scope_enforced_in_query"] = scope_enforced_in_query
+
+        data = await self._request("POST", "/v1/evaluate/retrieval", payload)
+        return EvaluationResult.from_dict(data)
+
+    async def evaluate_agent_plan(
+        self,
+        plan: Any,
+        *,
+        tenant_id: str = "default",
+        app_id: str = "default",
+        agent_id: str = "default",
+        env: str = "prod",
+        metadata: Optional[Dict[str, Any]] = None,
+        request_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        span_id: Optional[str] = None,
+    ) -> EvaluationResult:
+        """Evaluate a proposed multi-step agent plan before execution.
+
+        Calls ``POST /v1/evaluate/agent-plan``.
+
+        Args:
+            plan: The proposed plan (list of steps or structured JSON).
+        """
+        payload = self._scope_payload(
+            request_id, tenant_id, app_id, agent_id, env,
+            metadata, trace_id, session_id, span_id,
+        )
+        payload["plan"] = plan
+
+        data = await self._request("POST", "/v1/evaluate/agent-plan", payload)
+        return EvaluationResult.from_dict(data)
+
+    async def evaluate_agent_step(
+        self,
+        action: str = "",
+        *,
+        iteration: int = 0,
+        max_iterations: Optional[int] = None,
+        tenant_id: str = "default",
+        app_id: str = "default",
+        agent_id: str = "default",
+        env: str = "prod",
+        metadata: Optional[Dict[str, Any]] = None,
+        request_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        span_id: Optional[str] = None,
+    ) -> EvaluationResult:
+        """Evaluate a single agent-loop iteration (budget/depth caps).
+
+        Calls ``POST /v1/evaluate/agent-step``.
+
+        Args:
+            action: The action/tool the agent intends to take this step.
+            iteration: Zero-based loop iteration counter.
+            max_iterations: The caller's own iteration cap, if any.
+        """
+        payload = self._scope_payload(
+            request_id, tenant_id, app_id, agent_id, env,
+            metadata, trace_id, session_id, span_id,
+        )
+        payload["action"] = action
+        payload["iteration"] = iteration
+        if max_iterations is not None:
+            payload["max_iterations"] = max_iterations
+
+        data = await self._request("POST", "/v1/evaluate/agent-step", payload)
+        return EvaluationResult.from_dict(data)
+
+    async def evaluate_memory_write(
+        self,
+        memory_value: str,
+        *,
+        memory_key: Optional[str] = None,
+        tenant_id: str = "default",
+        app_id: str = "default",
+        agent_id: str = "default",
+        env: str = "prod",
+        metadata: Optional[Dict[str, Any]] = None,
+        request_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        span_id: Optional[str] = None,
+    ) -> EvaluationResult:
+        """Evaluate text being written to agent memory (persistent injection).
+
+        Calls ``POST /v1/evaluate/memory-write``.
+
+        Args:
+            memory_value: The value being written to memory.
+            memory_key: Optional key the value is stored under.
+        """
+        payload = self._scope_payload(
+            request_id, tenant_id, app_id, agent_id, env,
+            metadata, trace_id, session_id, span_id,
+        )
+        payload["memory_value"] = memory_value
+        if memory_key is not None:
+            payload["memory_key"] = memory_key
+
+        data = await self._request("POST", "/v1/evaluate/memory-write", payload)
+        return EvaluationResult.from_dict(data)
+
     async def health(self) -> bool:
         """Check if the runtime is healthy."""
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.get(f"{self.base_url}/healthz")
+            client = self._ensure_client()
+            resp = await client.get(f"{self.base_url}/healthz")
             return resp.status_code == 200
         except Exception:
             return False
@@ -237,14 +449,14 @@ class GuardrailsClient:
             payload["bundle_id"] = bundle_id
 
         url = f"{base}/v1/orgs/{quote(org_id, safe='')}/benchmarks"
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(url, json=payload, headers=self._headers())
-            if resp.status_code >= 400:
-                raise GuardrailsError(
-                    f"run_dataset failed: {resp.status_code} {resp.text}",
-                    status_code=resp.status_code,
-                )
-            return BenchmarkResult.from_dict(resp.json())
+        client = self._ensure_client()
+        resp = await client.post(url, json=payload, headers=self._headers(), timeout=120.0)
+        if resp.status_code >= 400:
+            raise GuardrailsError(
+                f"run_dataset failed: {resp.status_code} {resp.text}",
+                status_code=resp.status_code,
+            )
+        return BenchmarkResult.from_dict(resp.json())
 
     async def replay_decision(
         self,
@@ -270,14 +482,14 @@ class GuardrailsClient:
             payload["policy_version"] = policy_version
 
         url = f"{base}/v1/orgs/{quote(org_id, safe='')}/traces/{quote(trace_id, safe='')}/replay"
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, json=payload, headers=self._headers())
-            if resp.status_code >= 400:
-                raise GuardrailsError(
-                    f"replay_decision failed: {resp.status_code} {resp.text}",
-                    status_code=resp.status_code,
-                )
-            return ReplayResult.from_dict(resp.json())
+        client = self._ensure_client()
+        resp = await client.post(url, json=payload, headers=self._headers(), timeout=30.0)
+        if resp.status_code >= 400:
+            raise GuardrailsError(
+                f"replay_decision failed: {resp.status_code} {resp.text}",
+                status_code=resp.status_code,
+            )
+        return ReplayResult.from_dict(resp.json())
 
     # ── Typed Contract helpers ──────────────────────────────────────────
 
@@ -308,9 +520,24 @@ class GuardrailsClient:
                 compatibility; set ``True`` for safety-critical paths where
                 unvalidated output must not be accepted.
 
+                NOTE: the fail-open default flips to fail-closed in the next
+                major release. Until then every fail-open pass-through emits a
+                ``GuardrailsFailOpenWarning``.
+
         Returns:
             Dict with ``valid`` (bool), ``errors`` (list of field errors),
-            and ``parsed`` (the parsed JSON if valid).
+            ``parsed`` (the parsed JSON if valid) and ``outcome``, one of:
+
+            - ``'valid'``: the server validated the output and it passed.
+            - ``'invalid'``: the output failed validation (locally or server-side).
+            - ``'unavailable'``: the server could not be reached (network error,
+              timeout, or a non-auth 4xx); no validation happened.
+            - ``'auth_error'``: the server rejected the credentials (401/403);
+              no validation happened.
+            - ``'server_error'``: the server errored (5xx); no validation happened.
+
+            ``valid=True`` with an outcome other than ``'valid'`` means the
+            text was passed through UNVALIDATED (fail-open).
         """
         import json as _json
 
@@ -318,17 +545,37 @@ class GuardrailsClient:
         try:
             parsed = _json.loads(text)
         except _json.JSONDecodeError as e:
-            return {"valid": False, "errors": [{"path": "/", "message": f"Invalid JSON: {e}"}], "parsed": None}
+            return {
+                "valid": False,
+                "errors": [{"path": "/", "message": f"Invalid JSON: {e}"}],
+                "parsed": None,
+                "outcome": "invalid",
+            }
 
-        def _unavailable() -> Dict[str, Any]:
+        def _fallthrough(outcome: str) -> Dict[str, Any]:
             if fail_closed:
                 return {
                     "valid": False,
                     "errors": [{"path": "/", "message": "Server validation unavailable"}],
                     "parsed": parsed,
                     "warning": "Server validation unavailable",
+                    "outcome": outcome,
                 }
-            return {"valid": True, "errors": [], "parsed": parsed, "warning": "Server validation unavailable"}
+            warnings.warn(
+                "znyx-sdk: output-contract validation could not reach the server "
+                f"(outcome={outcome!r}); the output was passed through UNVALIDATED "
+                "(fail-open). This default flips to fail-closed in the next major "
+                "release; pass fail_closed=True to opt in now.",
+                GuardrailsFailOpenWarning,
+                stacklevel=2,
+            )
+            return {
+                "valid": True,
+                "errors": [],
+                "parsed": parsed,
+                "warning": "Server validation unavailable",
+                "outcome": outcome,
+            }
 
         base = (control_plane_url or self.base_url).rstrip("/")
         payload: Dict[str, Any] = {"text": text}
@@ -337,13 +584,21 @@ class GuardrailsClient:
 
         url = f"{base}/v1/orgs/{quote(org_id, safe='')}/schemas/{quote(schema_name, safe='')}/validate"
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.post(url, json=payload, headers=self._headers())
-                if resp.status_code >= 400:
-                    return _unavailable()
-                return resp.json()
+            client = self._ensure_client()
+            resp = await client.post(url, json=payload, headers=self._headers())
+            if resp.status_code in (401, 403):
+                return _fallthrough("auth_error")
+            if resp.status_code >= 500:
+                return _fallthrough("server_error")
+            if resp.status_code >= 400:
+                return _fallthrough("unavailable")
+            data = resp.json()
+            data.setdefault("outcome", "valid" if data.get("valid", False) else "invalid")
+            return data
+        except httpx.TimeoutException:
+            return _fallthrough("unavailable")
         except Exception:
-            return _unavailable()
+            return _fallthrough("unavailable")
 
     async def parse_typed_output(
         self,
@@ -359,7 +614,8 @@ class GuardrailsClient:
 
         Convenience wrapper around ``validate_output_contract`` that raises
         ``GuardrailsError`` if validation fails. Pass ``fail_closed=True`` to
-        also raise when the control plane is unreachable.
+        also raise when the control plane is unreachable; the raised error
+        carries the validation ``outcome`` as ``err.outcome``.
         """
         result = await self.validate_output_contract(
             text, schema_name, org_id=org_id,
@@ -369,7 +625,10 @@ class GuardrailsClient:
         if not result.get("valid", False):
             errors = result.get("errors", [])
             msg = "; ".join(e.get("message", "") for e in errors[:3])
-            raise GuardrailsError(f"Output contract validation failed: {msg}")
+            raise GuardrailsError(
+                f"Output contract validation failed: {msg}",
+                outcome=result.get("outcome", "invalid"),
+            )
         return result.get("parsed", {})
 
     async def evaluate_stream(
@@ -402,26 +661,50 @@ class GuardrailsClient:
         if policy:
             payload["policy"] = policy
 
+        def _make_event(event_name: Optional[str], data_str: str) -> Optional[StreamEvent]:
+            try:
+                data = json.loads(data_str)
+            except json.JSONDecodeError:
+                return None
+            if event_name is not None:
+                # SSE `event:` field names the event; the data payload is the body.
+                return StreamEvent(
+                    event=event_name,
+                    data=data if isinstance(data, dict) else {},
+                )
+            # Legacy framing: the event name is embedded in the data payload.
+            if isinstance(data, dict):
+                return StreamEvent(event=data.get("event", "unknown"), data=data.get("data", {}))
+            return None
+
         url = f"{self.base_url}/v1/evaluate/stream"
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            async with client.stream(
-                "POST", url, json=payload, headers=self._headers(),
-            ) as resp:
-                if resp.status_code >= 400:
-                    body = await resp.aread()
-                    raise GuardrailsError(
-                        f"evaluate_stream failed: {resp.status_code} {body.decode()}",
-                        status_code=resp.status_code,
-                    )
-                buffer = ""
-                async for line in resp.aiter_lines():
-                    if line.startswith("data: "):
-                        data_str = line[6:]
-                        try:
-                            data = json.loads(data_str)
-                            yield StreamEvent(
-                                event=data.get("event", "unknown"),
-                                data=data.get("data", {}),
-                            )
-                        except json.JSONDecodeError:
-                            continue
+        client = self._ensure_client()
+        async with client.stream(
+            "POST", url, json=payload, headers=self._headers(), timeout=60.0,
+        ) as resp:
+            if resp.status_code >= 400:
+                body = await resp.aread()
+                raise GuardrailsError(
+                    f"evaluate_stream failed: {resp.status_code} {body.decode()}",
+                    status_code=resp.status_code,
+                )
+            # SSE framing: fields accumulate until a blank line ends the event.
+            event_name: Optional[str] = None
+            data_lines: List[str] = []
+            async for line in resp.aiter_lines():
+                if line == "":
+                    if data_lines:
+                        event = _make_event(event_name, "\n".join(data_lines))
+                        if event is not None:
+                            yield event
+                    event_name = None
+                    data_lines = []
+                elif line.startswith("event:"):
+                    event_name = line[6:].lstrip(" ")
+                elif line.startswith("data:"):
+                    data_lines.append(line[5:].lstrip(" "))
+            # Flush a final event that ended without a trailing blank line.
+            if data_lines:
+                event = _make_event(event_name, "\n".join(data_lines))
+                if event is not None:
+                    yield event

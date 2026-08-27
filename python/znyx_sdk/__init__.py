@@ -12,7 +12,12 @@ from znyx_sdk.models import (
     ReplayResult,
     StreamEvent,
 )
-from znyx_sdk.exceptions import GuardrailsError, GuardrailsTimeoutError, GuardrailsAuthError
+from znyx_sdk.exceptions import (
+    GuardrailsError,
+    GuardrailsTimeoutError,
+    GuardrailsAuthError,
+    GuardrailsFailOpenWarning,
+)
 
 __version__ = "1.1.2"
 __all__ = [
@@ -29,4 +34,5 @@ __all__ = [
     "GuardrailsError",
     "GuardrailsTimeoutError",
     "GuardrailsAuthError",
+    "GuardrailsFailOpenWarning",
 ]
