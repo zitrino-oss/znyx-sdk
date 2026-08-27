@@ -20,7 +20,6 @@
     </license>
   </licenses>
 
-  <!-- Maven Central requires at least one developer entry. Edit to taste. -->
   <developers>
     <developer>
       <name>Znyx SDK Team</name>
