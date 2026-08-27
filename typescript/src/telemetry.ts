@@ -4,7 +4,7 @@
  * Sends a single fire-and-forget ping when a client is first constructed, then
  * at most one "heartbeat" ping per 24h. Non-sensitive metadata only:
  *
- *   install_id (random UUID, persisted to ~/.znyx/sdk-state.json),
+ *   install_id (random UUID, persisted to ~/.znyx/sdk-state-node.json),
  *   SDK version, source ("node-sdk"), platform / arch / OS release, run_count.
  *
  * No PII, no request content. Mirrors the runtime heartbeat so SDK installs
@@ -86,7 +86,7 @@ export async function maybeSendInstallPing(): Promise<void> {
     const path = await import('node:path');
     const { randomUUID } = await import('node:crypto');
 
-    const stateFile = path.join(os.homedir(), '.znyx', 'sdk-state.json');
+    const stateFile = path.join(os.homedir(), '.znyx', 'sdk-state-node.json');
 
     let state: Record<string, any> = {};
     try {
@@ -139,7 +139,11 @@ export async function maybeSendInstallPing(): Promise<void> {
       os: process.platform,
       os_version: os.release(),
       arch: process.arch,
-      node_version: process.versions.node,
+      // Sent under python_version: the receiver's schema predates the
+      // multi-language SDKs and only has this one runtime-version field, so
+      // every non-Python SDK reports its own runtime version under it too.
+      // `source` above says which runtime this actually is.
+      python_version: process.versions.node,
       run_count: runCount,
       timestamp: nowIso,
     };

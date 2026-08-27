@@ -20,8 +20,10 @@ import java.util.UUID;
  *
  * <p>Sends a single fire-and-forget ping when a client is first constructed, then
  * at most one "heartbeat" ping per 24h. Non-sensitive metadata only:
- * install_id (random UUID, persisted to {@code ~/.znyx/sdk-state.json}), SDK
- * version, source ("java-sdk"), OS / arch / Java version, run_count.
+ * install_id (random UUID, persisted to {@code ~/.znyx/sdk-state-java.json}), SDK
+ * version, source ("java-sdk"), OS / arch / Java version, run_count. The state
+ * file is per language, so this SDK's ping schedule is independent of any other
+ * ZNYX SDK installed on the same machine.
  *
  * <p>No PII, no request content, no tenant data. Opt out with
  * {@code ZNYX_TELEMETRY=false} (on by default). Disclosed once to stderr on the
@@ -36,7 +38,7 @@ final class Telemetry {
     // ZNYX_TELEMETRY=false.
     private static final String ENDPOINT = resolveEndpoint();
     private static final Path STATE_FILE =
-            Path.of(System.getProperty("user.home", "."), ".znyx", "sdk-state.json");
+            Path.of(System.getProperty("user.home", "."), ".znyx", "sdk-state-java.json");
     private static final long HEARTBEAT_INTERVAL_SECONDS = 86_400L; // 24h
     private static final String SOURCE = "java-sdk";
 
@@ -153,7 +155,9 @@ final class Telemetry {
             payload.put("os", System.getProperty("os.name", "unknown"));
             payload.put("os_version", System.getProperty("os.version", "unknown"));
             payload.put("arch", System.getProperty("os.arch", "unknown"));
-            payload.put("java_version", System.getProperty("java.version", "unknown"));
+            // The receiver stores every SDK's language runtime version in its
+            // python_version field; "source" says which runtime this really is.
+            payload.put("python_version", System.getProperty("java.version", "unknown"));
             payload.put("run_count", runCount);
             payload.put("timestamp", nowIso);
 
@@ -205,10 +209,9 @@ final class Telemetry {
     }
 
     /**
-     * Parse an ISO-8601 timestamp. The shared state file is written by several
-     * SDKs: some emit a trailing 'Z' (Java, TypeScript, Rust) and some an explicit
-     * "+00:00" offset (Python, Ruby, .NET). {@link Instant#parse} only accepts the
-     * former, so fall back to {@link OffsetDateTime} which accepts both.
+     * Parse an ISO-8601 timestamp leniently. {@link Instant#parse} only accepts a
+     * trailing 'Z'; fall back to {@link OffsetDateTime}, which also accepts an
+     * explicit "+00:00" offset (seen in state files written by older releases).
      */
     private static Instant parseInstant(String s) {
         try {

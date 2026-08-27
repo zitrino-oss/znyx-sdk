@@ -3,7 +3,7 @@
 Sends a single fire-and-forget ping when a client is first constructed, then at
 most one "heartbeat" ping per 24h. Non-sensitive metadata only:
 
-    install_id (random UUID, persisted to ~/.znyx/sdk-state.json),
+    install_id (random UUID, persisted to ~/.znyx/sdk-state-python.json),
     SDK version, source ("python-sdk"), OS / arch / Python version, run_count.
 
 No PII, no request content, no tenant data. Mirrors the runtime heartbeat
@@ -45,7 +45,7 @@ def _resolve_endpoint() -> str:
 
 
 _ENDPOINT = _resolve_endpoint()
-_STATE_FILE = Path.home() / ".znyx" / "sdk-state.json"
+_STATE_FILE = Path.home() / ".znyx" / "sdk-state-python.json"
 _HEARTBEAT_INTERVAL = 86400  # seconds (24h) — don't ping more often than this
 _SOURCE = "python-sdk"
 
