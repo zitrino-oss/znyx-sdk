@@ -10,7 +10,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -152,15 +152,9 @@ public class ZnyxClient {
         if (req.env == null)       req.env = "prod";
     }
 
-    private static final Random RNG = new Random();
-
     private static String newRequestId() {
-        byte[] b = new byte[4];
-        RNG.nextBytes(b);
-        // Java 11-compatible hex encoding (HexFormat is Java 17+).
-        StringBuilder sb = new StringBuilder("req_");
-        for (byte x : b) sb.append(String.format("%02x", x));
-        return sb.toString();
+        // 128-bit random id, same shape as the other SDKs.
+        return UUID.randomUUID().toString();
     }
 
     // ── Builder ───────────────────────────────────────────────────────────────
