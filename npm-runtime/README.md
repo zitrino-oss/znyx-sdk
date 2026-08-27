@@ -9,7 +9,13 @@ npm install -g @znyx/runtime
 ```
 
 On install, a platform-matched binary is downloaded from GitHub Releases and its
-SHA256 checksum is verified before being marked executable.
+SHA256 checksum is verified before being marked executable. If the download or
+the checksum verification fails, the install fails rather than leaving a broken
+`znyx` command behind.
+
+For offline or air-gapped installs, set `ZNYX_SKIP_BINARY_DOWNLOAD=1` to skip
+the download; place a binary at `bin/znyx-bin` (`bin/znyx-bin.exe` on Windows)
+inside the installed package to use the CLI.
 
 ## Usage
 

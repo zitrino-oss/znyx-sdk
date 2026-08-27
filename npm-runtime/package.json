@@ -1,12 +1,13 @@
 {
   "name": "@znyx/runtime",
   "version": "1.0.1",
-  "description": "ZNYX Runtime — LLM guardrails evaluation server (npm binary wrapper)",
+  "description": "ZNYX Runtime - LLM guardrails evaluation server (npm binary wrapper)",
   "bin": {
     "znyx": "bin/znyx.js"
   },
   "scripts": {
-    "postinstall": "node scripts/postinstall.js"
+    "postinstall": "node scripts/postinstall.js",
+    "test": "node --test"
   },
   "files": [
     "bin",
