@@ -124,10 +124,21 @@ impl ZnyxClient {
 }
 
 pub(crate) fn new_request_id() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .subsec_nanos();
-    format!("req_{:08x}", nanos)
+    // 128-bit random id, same shape as the other SDKs.
+    uuid::Uuid::new_v4().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_ids_are_random_uuids() {
+        let a = new_request_id();
+        let b = new_request_id();
+        assert_ne!(a, b, "consecutive ids must differ");
+
+        let parsed = uuid::Uuid::parse_str(&a).expect("canonical UUID");
+        assert_eq!(parsed.get_version_num(), 4, "must be a v4 (random) UUID");
+    }
 }

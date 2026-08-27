@@ -2,7 +2,7 @@
 
 | Workflow | File | Triggers | Purpose |
 |---|---|---|---|
-| CI | `ci.yml` | push to main, PRs | Build/compile each language SDK (python, typescript, java, csharp, ruby, rust). |
+| CI | `ci.yml` | push to main, PRs | Build/compile each language SDK (python, typescript, java, csharp, ruby, rust), run the python + typescript SDK behavioral test suites (stub-server tests for auth, per-stage endpoints, error mapping, contract-validation outcomes, streaming), and run the npm-runtime installer tests (`node --test`). |
 | Dependency Audit | `audit.yml` | push, PRs, weekly (Mon 08:00 UTC) | `pip-audit`, `npm audit`, `cargo audit`. Java/C#/Ruby deps are covered by Dependabot alerts. |
 | Security | `security.yml` | push, PRs, weekly (Mon 06:00 UTC), manual | Multi-language SAST (semgrep `p/security-audit` + `p/secrets`), secret scan (trivy fs), and CodeQL for python / javascript-typescript / ruby. |
 

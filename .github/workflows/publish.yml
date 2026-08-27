@@ -190,6 +190,9 @@ jobs:
       - name: Set version
         working-directory: npm-runtime
         run: npm version "${{ needs.version.outputs.version }}" --no-git-tag-version --allow-same-version
+      - name: Run installer tests
+        working-directory: npm-runtime
+        run: node --test
       - name: Skip if this version is already on npm
         id: check
         working-directory: npm-runtime

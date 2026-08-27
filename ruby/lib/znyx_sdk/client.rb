@@ -106,8 +106,9 @@ module ZnyxSdk
       raise ZnyxError, "HTTP request failed: #{e.message}"
     end
 
+    # 128-bit random id, same shape as the other SDKs.
     def new_request_id
-      "req_#{SecureRandom.hex(4)}"
+      SecureRandom.uuid
     end
   end
 end

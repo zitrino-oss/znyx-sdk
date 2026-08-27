@@ -41,6 +41,22 @@ class GuardrailsSyncClient:
     def evaluate_tool(self, tool_name: str, tool_args: Dict[str, Any], **kwargs) -> EvaluationResult:
         return self._run(self._async_client.evaluate_tool(tool_name, tool_args, **kwargs))
 
+    def evaluate_retrieval(self, chunks: List[Any], **kwargs) -> EvaluationResult:
+        """Evaluate retrieved RAG chunks. See async client for full docs."""
+        return self._run(self._async_client.evaluate_retrieval(chunks, **kwargs))
+
+    def evaluate_agent_plan(self, plan: Any, **kwargs) -> EvaluationResult:
+        """Evaluate a proposed agent plan. See async client for full docs."""
+        return self._run(self._async_client.evaluate_agent_plan(plan, **kwargs))
+
+    def evaluate_agent_step(self, action: str = "", **kwargs) -> EvaluationResult:
+        """Evaluate a single agent-loop iteration. See async client for full docs."""
+        return self._run(self._async_client.evaluate_agent_step(action, **kwargs))
+
+    def evaluate_memory_write(self, memory_value: str, **kwargs) -> EvaluationResult:
+        """Evaluate text written to agent memory. See async client for full docs."""
+        return self._run(self._async_client.evaluate_memory_write(memory_value, **kwargs))
+
     def health(self) -> bool:
         return self._run(self._async_client.health())
 

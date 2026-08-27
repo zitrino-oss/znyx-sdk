@@ -2,8 +2,10 @@
 //!
 //! Sends a single fire-and-forget ping when a client is first constructed, then
 //! at most one "heartbeat" ping per 24h. Non-sensitive metadata only:
-//! install_id (random UUID, persisted to `~/.znyx/sdk-state.json`), SDK version,
-//! source (`"rust-sdk"`), OS / arch / crate version, run_count.
+//! install_id (random UUID, persisted to `~/.znyx/sdk-state-rust.json`), SDK
+//! version, source (`"rust-sdk"`), OS / arch / crate version, run_count. The state
+//! file is per language, so this SDK's ping schedule is independent of any other
+//! ZNYX SDK installed on the same machine.
 //!
 //! No PII, no request content, no tenant data. Opt out with `ZNYX_TELEMETRY=false`
 //! (on by default). Disclosed once to stderr on the first run. Every operation is
@@ -59,7 +61,7 @@ fn state_file() -> Option<PathBuf> {
     let home = env::var("HOME")
         .ok()
         .or_else(|| env::var("USERPROFILE").ok())?;
-    Some(PathBuf::from(home).join(".znyx").join("sdk-state.json"))
+    Some(PathBuf::from(home).join(".znyx").join("sdk-state-rust.json"))
 }
 
 fn load_state(path: &PathBuf) -> Value {
@@ -268,9 +270,9 @@ mod tests {
 
     #[test]
     fn parse_accepts_both_offset_and_z_and_fractions() {
-        // Formats emitted by the sibling SDKs that share ~/.znyx/sdk-state.json.
-        assert_eq!(parse_iso8601_secs("1970-01-01T00:00:00Z"), Some(0)); // Java/TS/Rust
-        assert_eq!(parse_iso8601_secs("1970-01-01T00:00:00+00:00"), Some(0)); // Python/Ruby/.NET
+        // Stay lenient: state files written by older releases may carry either style.
+        assert_eq!(parse_iso8601_secs("1970-01-01T00:00:00Z"), Some(0));
+        assert_eq!(parse_iso8601_secs("1970-01-01T00:00:00+00:00"), Some(0));
         assert_eq!(
             parse_iso8601_secs("2023-11-14T22:13:20.123456+00:00"),
             Some(1_700_000_000)

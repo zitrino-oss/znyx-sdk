@@ -15,6 +15,8 @@
 
 ---
 
+> **Status: alpha.** Covers input, output, and tool evaluation (sync) with typed responses, a configurable timeout, and opt-out install telemetry. No streaming, output contracts, or retries yet - see the [capability matrix](../README.md#capability-matrix).
+
 [ZNYX](https://znyx.ai) is a runtime policy enforcement platform that protects AI applications from prompt injection, data leaks, toxic content, and policy violations — in real time, before and after the LLM. This SDK is a thin client for the self-hosted ZNYX Runtime.
 
 ## Installation

@@ -11,12 +11,12 @@ A single JSON payload with non-sensitive metadata only:
 
 | Field | Example | Description |
 |-------|---------|-------------|
-| `install_id` | `3f9c…` (random UUID v4) | Random identifier generated on first run, persisted to `~/.znyx/sdk-state.json`. Not tied to you, your account, or your machine's identity. |
+| `install_id` | `3f9c…` (random UUID v4) | Random identifier generated on first run, persisted to the SDK's state file under `~/.znyx/` (e.g. `sdk-state-java.json`). Not tied to you, your account, or your machine's identity. |
 | `version` | `1.0.1` | The SDK package version. |
 | `source` | `python-sdk` | Which SDK sent the ping (`python-sdk`, `node-sdk`, `java-sdk`, `ruby-sdk`, `dotnet-sdk`, `rust-sdk`). |
 | `event_type` | `first_run` / `heartbeat` | Whether this is the first ping or a periodic one. |
 | `os` / `os_version` / `arch` | `Linux` / `6.1.0` / `x86_64` | Operating system, release, and CPU architecture. |
-| language runtime version | `3.11.4` | e.g. Python/Node/Java/Ruby/.NET/Rust runtime version (where available). |
+| `python_version` | `3.11.4` | The language runtime version (where available). The receiver's schema predates the multi-language SDKs, so every SDK reports its runtime version under this field name; `source` says which runtime it actually is. |
 | `run_count` | `7` | How many times a client has been constructed on this install. |
 | `timestamp` | ISO 8601 | When the ping was generated. |
 
@@ -31,7 +31,8 @@ A single JSON payload with non-sensitive metadata only:
 
 - One **first-run** ping the first time an SDK client is constructed on an install.
 - After that, at most **one ping per 24 hours** ("heartbeat"), throttled via the
-  timestamp in `~/.znyx/sdk-state.json`.
+  timestamp in the SDK's state file under `~/.znyx/`. Each SDK language keeps its
+  own state file, so one SDK's ping schedule never suppresses another's.
 
 Every ping is **fire-and-forget and best-effort**: it runs off the calling thread
 with a short timeout and can never slow down, block, or break your application. On

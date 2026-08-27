@@ -104,8 +104,8 @@ public sealed class ZnyxClient : IDisposable
         req.Env       ??= "prod";
     }
 
-    private static string NewRequestId() =>
-        $"req_{Convert.ToHexString(Guid.NewGuid().ToByteArray())[..8].ToLower()}";
+    // 128-bit random id, same shape as the other SDKs.
+    private static string NewRequestId() => Guid.NewGuid().ToString();
 
     public void Dispose() => _http.Dispose();
 }

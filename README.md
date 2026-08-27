@@ -54,7 +54,28 @@ See each language's directory for its full README and idiomatic usage.
 - **Output contracts** - typed/structured output validation
 - **Sync and async** clients with retries and timeouts
 
+Not every SDK implements every feature; see the capability matrix below.
+
 The SDKs talk to a self-hosted [ZNYX Runtime](https://github.com/zitrino-oss/znyx-runtime); see its docs for the built-in detectors and policy format.
+
+## Capability matrix
+
+Coverage differs by language. Python and TypeScript are the most complete clients. The **Java, C#, Ruby, and Rust SDKs are alpha**: they cover the core evaluate endpoints and install telemetry only. Each cell below reflects what the client code in this repo actually implements.
+
+| Capability | Python | TypeScript | Java | C# | Ruby | Rust |
+|---|---|---|---|---|---|---|
+| Evaluate input (`/v1/evaluate/input`) | yes | yes | yes | yes | yes | yes |
+| Evaluate output (`/v1/evaluate/output`) | yes | yes | yes | yes | yes | yes |
+| Evaluate tool (`/v1/evaluate/tool`) | yes | yes | yes | yes | yes | yes |
+| Evaluate retrieval (`/v1/evaluate/retrieval`) | no | no | no | no | no | no |
+| Evaluate agent plan (`/v1/evaluate/agent-plan`) | no | no | no | no | no | no |
+| Evaluate agent step (`/v1/evaluate/agent-step`) | no | no | no | no | no | no |
+| Evaluate memory write (`/v1/evaluate/memory-write`) | no | no | no | no | no | no |
+| Streaming (`/v1/evaluate/stream`) | yes | yes | no | no | no | no |
+| Typed output contracts (validate/parse) | yes | yes | no | no | no | no |
+| Retries | yes | no | no | no | no | no |
+| Timeouts | yes (configurable) | yes (configurable) | partial (fixed 10s) | partial (fixed 10s) | yes (configurable) | partial (fixed 10s) |
+| Install telemetry (opt-out) | yes | yes | yes | yes | yes | yes |
 
 ## Telemetry
 

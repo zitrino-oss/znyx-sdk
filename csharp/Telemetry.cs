@@ -10,8 +10,10 @@ namespace Znyx.Sdk;
 ///
 /// Sends a single fire-and-forget ping when a client is first constructed, then
 /// at most one "heartbeat" ping per 24h. Non-sensitive metadata only:
-/// install_id (random UUID, persisted to ~/.znyx/sdk-state.json), SDK version,
-/// source ("dotnet-sdk"), OS / arch / .NET version, run_count.
+/// install_id (random UUID, persisted to ~/.znyx/sdk-state-dotnet.json), SDK
+/// version, source ("dotnet-sdk"), OS / arch / .NET version, run_count. The state
+/// file is per language, so this SDK's ping schedule is independent of any other
+/// ZNYX SDK installed on the same machine.
 ///
 /// No PII, no request content, no tenant data. Opt out with ZNYX_TELEMETRY=false
 /// (on by default). Disclosed once to stderr on the first run. Every operation is
@@ -28,7 +30,7 @@ internal static class Telemetry
 
     private static readonly string StateFile = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".znyx", "sdk-state.json");
+        ".znyx", "sdk-state-dotnet.json");
 
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromHours(24);
     private const string Source = "dotnet-sdk";
@@ -81,6 +83,19 @@ internal static class Telemetry
                 .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
                 ?? typeof(ZnyxClient).Assembly.GetName().Version?.ToString();
             return string.IsNullOrEmpty(v) ? "unknown" : v!;
+        }
+        catch
+        {
+            return "unknown";
+        }
+    }
+
+    private static string RuntimeVersion()
+    {
+        try
+        {
+            var v = RuntimeInformation.FrameworkDescription.Trim();
+            return v.Length > 32 ? v[..32] : v;
         }
         catch
         {
@@ -150,7 +165,10 @@ internal static class Telemetry
                 ["os"] = RuntimeInformation.OSDescription,
                 ["os_version"] = Environment.OSVersion.Version.ToString(),
                 ["arch"] = RuntimeInformation.OSArchitecture.ToString(),
-                ["dotnet_version"] = RuntimeInformation.FrameworkDescription,
+                // The receiver stores every SDK's language runtime version in its
+                // python_version field (capped at 32 chars); "source" says which
+                // runtime this really is.
+                ["python_version"] = RuntimeVersion(),
                 ["run_count"] = runCount,
                 ["timestamp"] = nowIso,
             };

@@ -13,8 +13,10 @@ module ZnyxSdk
   #
   # Sends a single fire-and-forget ping when a client is first constructed, then
   # at most one "heartbeat" ping per 24h. Non-sensitive metadata only:
-  # install_id (random UUID, persisted to ~/.znyx/sdk-state.json), SDK version,
-  # source ("ruby-sdk"), OS / arch / Ruby version, run_count.
+  # install_id (random UUID, persisted to ~/.znyx/sdk-state-ruby.json), SDK
+  # version, source ("ruby-sdk"), OS / arch / Ruby version, run_count. The state
+  # file is per language, so this SDK's ping schedule is independent of any other
+  # ZNYX SDK installed on the same machine.
   #
   # No PII, no request content, no tenant data. Opt out with
   # ZNYX_TELEMETRY=false (on by default). Disclosed once to stderr on the first
@@ -38,7 +40,7 @@ module ZnyxSdk
                  "https://cp.znyx.ai/v1/install-telemetry"
                end
 
-    STATE_FILE = File.join(Dir.home, ".znyx", "sdk-state.json")
+    STATE_FILE = File.join(Dir.home, ".znyx", "sdk-state-ruby.json")
     HEARTBEAT_INTERVAL = 86_400 # seconds (24h)
     SOURCE = "ruby-sdk"
 
@@ -94,16 +96,18 @@ module ZnyxSdk
         end
 
         payload = {
-          install_id:   install_id,
-          version:      version,
-          event_type:   event_type,
-          source:       SOURCE,
-          os:           RbConfig::CONFIG["host_os"],
-          os_version:   host_os_version,
-          arch:         RbConfig::CONFIG["host_cpu"],
-          ruby_version: RUBY_VERSION,
-          run_count:    run_count,
-          timestamp:    now_iso
+          install_id:     install_id,
+          version:        version,
+          event_type:     event_type,
+          source:         SOURCE,
+          os:             RbConfig::CONFIG["host_os"],
+          os_version:     host_os_version,
+          arch:           RbConfig::CONFIG["host_cpu"],
+          # The receiver stores every SDK's language runtime version in its
+          # python_version field; "source" says which runtime this really is.
+          python_version: RUBY_VERSION,
+          run_count:      run_count,
+          timestamp:      now_iso
         }
 
         Thread.new { post(payload) }
