@@ -13,6 +13,28 @@
  */
 
 import { maybeSendInstallPing } from './telemetry';
+import { SDK_SOURCE, SDK_VERSION } from './version';
+
+/**
+ * Headers sent on every request.
+ *
+ * X-Znyx-Sdk/-Version identify the calling SDK. The runtime records the newest
+ * pair it sees and forwards it to the control plane with its own heartbeat,
+ * which is what lets the console show an operator the SDK version their
+ * applications are actually running - anonymous install telemetry cannot answer
+ * that, because it carries no org and can never be attributed to a customer.
+ *
+ * Two headers rather than one packed value so a malformed version can never make
+ * the language unparseable. Both are plain metadata: the runtime treats them as
+ * untrusted and never derives policy from them.
+ */
+function baseHeaders(): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    'X-Znyx-Sdk': SDK_SOURCE,
+    'X-Znyx-Sdk-Version': SDK_VERSION,
+  };
+}
 
 // --- Types ---
 
@@ -288,7 +310,7 @@ export class GuardrailsClient {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeout);
 
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = { ...baseHeaders() };
     if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
 
     try {
@@ -451,7 +473,10 @@ export class GuardrailsClient {
 
   async health(): Promise<boolean> {
     try {
-      const resp = await fetch(`${this.baseUrl}/healthz`);
+      // Identified like every other call. fetch() has no client-level default
+      // headers, so each call site must pass them; a health check is still an
+      // SDK call and should report which SDK made it.
+      const resp = await fetch(`${this.baseUrl}/healthz`, { headers: baseHeaders() });
       return resp.ok;
     } catch {
       return false;
@@ -467,7 +492,7 @@ export class GuardrailsClient {
     if (options.policyVersion) body.policy_version = options.policyVersion;
     if (options.bundleId) body.bundle_id = options.bundleId;
 
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = { ...baseHeaders() };
     if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
 
     const resp = await this.fetchWithTimeout(
@@ -505,7 +530,7 @@ export class GuardrailsClient {
     const body: Record<string, any> = {};
     if (options.policyVersion) body.policy_version = options.policyVersion;
 
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = { ...baseHeaders() };
     if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
 
     const resp = await this.fetchWithTimeout(
@@ -587,7 +612,7 @@ export class GuardrailsClient {
       return { valid: true, errors: [], parsed, outcome };
     };
 
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = { ...baseHeaders() };
     if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
 
     const body: Record<string, any> = { text: options.text };
@@ -649,7 +674,7 @@ export class GuardrailsClient {
     };
     if (options.policy) body.policy = options.policy;
 
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = { ...baseHeaders() };
     if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
 
     // One controller drives the fetch; it aborts on timeout or when the

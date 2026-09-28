@@ -1,3 +1,4 @@
+import { SDK_SOURCE, SDK_VERSION } from './version';
 /**
  * Anonymous install telemetry for the ZNYX TypeScript SDK.
  *
@@ -41,20 +42,11 @@ function resolveEndpoint(): string {
 
 const ENDPOINT = resolveEndpoint();
 const HEARTBEAT_INTERVAL_MS = 86_400_000; // 24h
-const SOURCE = 'node-sdk';
+const SOURCE = SDK_SOURCE;
 
-// Read the version from package.json at runtime so it can never drift from the
-// published version. dist/telemetry.js resolves ../package.json to the package
-// root; best-effort, since telemetry must never throw.
-function resolveVersion(): string {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require('../package.json').version || 'unknown';
-  } catch {
-    return 'unknown';
-  }
-}
-const VERSION = resolveVersion();
+// Version/source now live in ./version so the client's request headers and this
+// ping report the same values from one place.
+const VERSION = SDK_VERSION;
 
 const DISCLOSURE =
   '[@znyx/sdk] Anonymous usage telemetry is on (install id, SDK version, OS - ' +

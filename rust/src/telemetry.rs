@@ -20,7 +20,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use serde_json::{json, Value};
 
 const HEARTBEAT_INTERVAL_SECONDS: u64 = 86_400; // 24h
-const SOURCE: &str = "rust-sdk";
+// pub(crate) so the client can send the same identifier as an X-Znyx-Sdk
+// request header without a second literal to keep in step.
+pub(crate) const SOURCE: &str = "rust-sdk";
 
 const DISCLOSURE: &str = "[znyx-sdk] Anonymous usage telemetry is on (install id, SDK version, OS - \
 no PII, no request content). Opt out with ZNYX_TELEMETRY=false.";

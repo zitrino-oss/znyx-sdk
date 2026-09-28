@@ -79,6 +79,15 @@ module ZnyxSdk
       }.merge(kwargs.compact)
     end
 
+    # Resolved defensively: `post` runs on the request hot path and
+    # znyx_sdk.rb defines VERSION *after* requiring this file, so a partial
+    # require (`require "znyx_sdk/client"` alone) would otherwise raise
+    # NameError mid-request. A missing version is metadata we can do without;
+    # a broken evaluation call is not.
+    def sdk_version
+      defined?(ZnyxSdk::VERSION) ? ZnyxSdk::VERSION : "unknown"
+    end
+
     def post(path, payload)
       http = Net::HTTP.new(@uri.host, @uri.port)
       http.use_ssl     = @uri.scheme == "https"
@@ -87,6 +96,16 @@ module ZnyxSdk
 
       request = Net::HTTP::Post.new(path)
       request["Content-Type"] = "application/json"
+      # X-Znyx-Sdk/-Version identify the calling SDK. The runtime records the
+      # newest pair it sees and forwards it to the control plane with its own
+      # heartbeat, which is what lets the console show an operator the SDK
+      # version their applications are actually running - anonymous install
+      # telemetry cannot answer that, as it carries no org.
+      #
+      # X-Znyx-Sdk reuses the telemetry `source` vocabulary ("ruby-sdk"), so the
+      # console and the admin install table label languages identically.
+      request["X-Znyx-Sdk"] = "ruby-sdk"
+      request["X-Znyx-Sdk-Version"] = sdk_version
       request["Authorization"] = "Bearer #{@api_key}" if @api_key
       request.body = JSON.generate(payload)
 

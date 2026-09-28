@@ -33,7 +33,9 @@ internal static class Telemetry
         ".znyx", "sdk-state-dotnet.json");
 
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromHours(24);
-    private const string Source = "dotnet-sdk";
+    // internal so ZnyxClient can send the same identifier as an X-Znyx-Sdk request
+    // header without a second literal to keep in step.
+    internal const string Source = "dotnet-sdk";
 
     private const string Disclosure =
         "[znyx-sdk] Anonymous usage telemetry is on (install id, SDK version, OS - " +
@@ -75,7 +77,7 @@ internal static class Telemetry
         return val != "false" && val != "0" && val != "no";
     }
 
-    private static string SdkVersion()
+    internal static string SdkVersion()
     {
         try
         {

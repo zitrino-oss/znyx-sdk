@@ -121,6 +121,16 @@ public class ZnyxClient {
                 .uri(URI.create(baseUrl + path))
                 .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
+                // X-Znyx-Sdk/-Version identify the calling SDK. The runtime records
+                // the newest pair it sees and forwards it to the control plane with
+                // its own heartbeat, which is what lets the console show an operator
+                // the SDK version their applications are actually running - anonymous
+                // install telemetry cannot answer that, as it carries no org.
+                //
+                // X-Znyx-Sdk reuses the telemetry SOURCE vocabulary ("java-sdk") so
+                // the console and the admin install table label languages identically.
+                .header("X-Znyx-Sdk", Telemetry.SOURCE)
+                .header("X-Znyx-Sdk-Version", Telemetry.sdkVersion())
                 .POST(HttpRequest.BodyPublishers.ofString(json));
         if (apiKey != null && !apiKey.isEmpty()) {
             builder.header("Authorization", "Bearer " + apiKey);

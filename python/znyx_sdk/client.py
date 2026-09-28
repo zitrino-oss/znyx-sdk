@@ -8,6 +8,7 @@ from urllib.parse import quote
 
 import httpx
 
+from znyx_sdk._version import __version__
 from znyx_sdk.models import (
     BenchmarkResult,
     DatasetSample,
@@ -21,6 +22,22 @@ from znyx_sdk.exceptions import (
     GuardrailsAuthError,
     GuardrailsFailOpenWarning,
 )
+
+
+# Identity headers, sent on EVERY request via the pooled client (see _ensure_client).
+# They let the runtime report, per environment, which SDK versions are calling it -
+# the only per-org view of SDK versions there is, since anonymous install telemetry
+# carries no org and cannot be attributed to a customer.
+#
+# Two headers rather than one packed value, so a malformed version can never make the
+# language unparseable. "python-sdk" reuses the telemetry `source` vocabulary (and
+# anonymous_installs.source) so the console and the admin install table label languages
+# identically. Both are plain metadata: the runtime treats them as untrusted and never
+# derives policy from them.
+_SDK_IDENTITY = {
+    "X-Znyx-Sdk": "python-sdk",
+    "X-Znyx-Sdk-Version": __version__,
+}
 
 
 class GuardrailsClient:
@@ -61,6 +78,8 @@ class GuardrailsClient:
             pass
 
     def _headers(self) -> Dict[str, str]:
+        """Per-call headers. SDK identity is NOT here - it lives on the pooled
+        client (_SDK_IDENTITY) so calls that pass no headers are still identified."""
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
@@ -79,7 +98,11 @@ class GuardrailsClient:
         except RuntimeError:
             loop = None
         if self._client is None or self._client.is_closed or self._client_loop is not loop:
-            self._client = httpx.AsyncClient(timeout=self.timeout)
+            # Identity headers go on the POOLED CLIENT, not on each call, so every
+            # request carries them - including ones that pass no per-call headers
+            # (health()) and any added later. Attaching them per-call meant a new
+            # call site silently shipped unidentified.
+            self._client = httpx.AsyncClient(timeout=self.timeout, headers=_SDK_IDENTITY)
             self._client_loop = loop
         return self._client
 
