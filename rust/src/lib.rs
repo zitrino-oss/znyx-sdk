@@ -55,6 +55,25 @@ impl ZnyxClient {
     /// Creates a new client with an API key sent as `Authorization: Bearer`.
     pub fn with_api_key(base_url: impl Into<String>, api_key: Option<&str>) -> Self {
         let mut headers = reqwest::header::HeaderMap::new();
+
+        // X-Znyx-Sdk/-Version identify the calling SDK. The runtime records the
+        // newest pair it sees and forwards it to the control plane with its own
+        // heartbeat, which is what lets the console show an operator the SDK
+        // version their applications are actually running - anonymous install
+        // telemetry cannot answer that, as it carries no org.
+        //
+        // X-Znyx-Sdk reuses the telemetry `source` vocabulary ("rust-sdk") so the
+        // console and the admin install table label languages identically. Both
+        // values are compile-time ASCII, so the parses below cannot realistically
+        // fail; on the off chance they do, the header is simply omitted rather
+        // than panicking a caller's process over metadata.
+        if let Ok(value) = telemetry::SOURCE.parse() {
+            headers.insert("x-znyx-sdk", value);
+        }
+        if let Ok(value) = env!("CARGO_PKG_VERSION").parse() {
+            headers.insert("x-znyx-sdk-version", value);
+        }
+
         if let Some(key) = api_key {
             // Skip the header on a non-ASCII/invalid key rather than panicking
             // the caller's process; the runtime will reject the unauthenticated

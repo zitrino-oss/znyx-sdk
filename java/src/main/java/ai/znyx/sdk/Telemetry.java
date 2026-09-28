@@ -40,7 +40,9 @@ final class Telemetry {
     private static final Path STATE_FILE =
             Path.of(System.getProperty("user.home", "."), ".znyx", "sdk-state-java.json");
     private static final long HEARTBEAT_INTERVAL_SECONDS = 86_400L; // 24h
-    private static final String SOURCE = "java-sdk";
+    // Package-private so ZnyxClient can send the same identifier as an X-Znyx-Sdk
+    // request header without a second literal to keep in step.
+    static final String SOURCE = "java-sdk";
 
     private static final String DISCLOSURE =
             "[znyx-sdk] Anonymous usage telemetry is on (install id, SDK version, OS - "
@@ -86,7 +88,7 @@ final class Telemetry {
         return !val.equals("false") && !val.equals("0") && !val.equals("no");
     }
 
-    private static String sdkVersion() {
+    static String sdkVersion() {
         try {
             String v = Telemetry.class.getPackage().getImplementationVersion();
             return (v == null || v.isEmpty()) ? "unknown" : v;

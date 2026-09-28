@@ -36,6 +36,26 @@ public sealed class ZnyxClient : IDisposable
     {
         _http = new HttpClient { BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/") };
         _http.Timeout = TimeSpan.FromSeconds(10);
+        // X-Znyx-Sdk/-Version identify the calling SDK. The runtime records the
+        // newest pair it sees and forwards it to the control plane with its own
+        // heartbeat, which is what lets the console show an operator the SDK
+        // version their applications are actually running - anonymous install
+        // telemetry cannot answer that, as it carries no org.
+        //
+        // X-Znyx-Sdk reuses the telemetry Source vocabulary ("dotnet-sdk") so the
+        // console and the admin install table label languages identically. Wrapped
+        // because a malformed header value must not break client construction over
+        // what is only metadata.
+        try
+        {
+            _http.DefaultRequestHeaders.Add("X-Znyx-Sdk", Telemetry.Source);
+            _http.DefaultRequestHeaders.Add("X-Znyx-Sdk-Version", Telemetry.SdkVersion());
+        }
+        catch
+        {
+            // identification headers are best-effort
+        }
+
         if (!string.IsNullOrEmpty(apiKey))
             _http.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
 

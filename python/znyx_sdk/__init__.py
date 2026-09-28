@@ -19,7 +19,10 @@ from znyx_sdk.exceptions import (
     GuardrailsFailOpenWarning,
 )
 
-__version__ = "1.1.2"
+# Defined in _version so client.py can read it without importing this module
+# (which would be a cycle). See that module for why it is not a literal.
+from znyx_sdk._version import __version__
+
 __all__ = [
     "GuardrailsClient",
     "GuardrailsSyncClient",
