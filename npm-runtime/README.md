@@ -1,6 +1,6 @@
 # @znyx/runtime
 
-ZNYX Runtime binary wrapper for npm. Installs the `znyx` CLI on macOS, Linux, and Windows.
+The `znyx` command for npm. Installs the `znyx` CLI binary on macOS, Linux, and Windows, the same command that `pip install znyx` provides.
 
 ## Install
 
@@ -20,34 +20,52 @@ inside the installed package to use the CLI.
 ## Usage
 
 ```bash
-znyx start                                # local mode, port 8080
-znyx start --port 9090                    # custom port
-znyx start --policy ./policies.yaml       # custom policy file
-znyx start --mode managed                 # connect to console.znyx.ai
-znyx version                              # print version
-znyx init --output ./config/policies.yaml # scaffold a starter policy
+znyx serve                          # run ZNYX on http://127.0.0.1:8080 (znyx start is the same)
+znyx serve --port 9090              # another port
+znyx serve --policy ./policies.yaml # your own policy file
+znyx serve --workers auto           # one worker process per CPU, up to 4, all on the one port
+znyx serve --ml                     # also start the ML model server (loopback only)
+znyx serve --airgapped              # no outbound calls at all
+znyx init                           # write znyx.yaml and policies.yaml to edit (-o DIR, --force)
+znyx config                         # the effective settings and where each came from (--json)
+znyx status                         # the running workers
+znyx key                            # this install's API key (--rotate for a new one)
+znyx version                        # one platform version and its components (--json)
+znyx models list                    # vetted model weights (znyx models fetch to download one)
+znyx benchmark ...                  # certify a model-backed detector (znyx benchmark -h)
 ```
+
+`znyx serve` works from an empty folder: it uses a built-in starter policy,
+creates an API key on first run in `~/.znyx/api-key` (show it with `znyx key`),
+and prints a dashboard URL and a curl example. Every API, including the local
+dashboard at `/dashboard`, is on one port.
+
+Settings come from flags, then environment variables, then `znyx.yaml`, then
+defaults. Run `znyx config` to see where each value came from.
 
 ## Supported platforms
 
-| Platform | Binary |
+| Platform | Release asset |
 |---|---|
-| macOS Apple Silicon | `znyx-runtime-darwin-arm64` |
-| macOS Intel | `znyx-runtime-darwin-x64` |
-| Linux x64 | `znyx-runtime-linux-x64` |
-| Linux ARM64 | `znyx-runtime-linux-arm64` |
-| Windows x64 | `znyx-runtime-windows-x64.exe` |
+| macOS Apple Silicon | `znyx-darwin-arm64` |
+| macOS Intel | `znyx-darwin-x64` |
+| Linux x64 | `znyx-linux-x64` |
+| Linux ARM64 | `znyx-linux-arm64` |
+| Windows x64 | `znyx-windows-x64.exe` |
 
-On unsupported platforms, install via `pip install znyx-runtime` or Docker instead.
+Older releases published these binaries as `znyx-runtime-<target>`. If a release has no
+`znyx-<target>` asset, the installer falls back to the `znyx-runtime-<target>` name.
+
+On unsupported platforms, install via `pip install znyx` or Docker instead.
 
 ## Alternative installs
 
 ```bash
 # Python
-pip install znyx-runtime
+pip install znyx
 
 # Docker
-docker run -p 8080:8080 znyx/runtime
+docker run -p 8080:8080 znyx/znyx
 ```
 
 ## License

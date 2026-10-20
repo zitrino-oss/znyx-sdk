@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 /**
- * postinstall.js - downloads the platform-matched ZNYX Runtime binary from
+ * postinstall.js - downloads the platform-matched `znyx` binary from
  * GitHub Releases, verifies its SHA256 checksum, and marks it executable.
  *
- * Supported platforms:
- *   macOS Apple Silicon  -> znyx-runtime-darwin-arm64
- *   macOS Intel          -> znyx-runtime-darwin-x64
- *   Linux x64            -> znyx-runtime-linux-x64
- *   Linux ARM64          -> znyx-runtime-linux-arm64
- *   Windows x64          -> znyx-runtime-windows-x64.exe
+ * Supported platforms (release asset names, built from the `znyx` CLI):
+ *   macOS Apple Silicon  -> znyx-darwin-arm64
+ *   macOS Intel          -> znyx-darwin-x64
+ *   Linux x64            -> znyx-linux-x64
+ *   Linux ARM64          -> znyx-linux-arm64
+ *   Windows x64          -> znyx-windows-x64.exe
+ *
+ * Releases cut before the single `znyx` install publish the same binaries as
+ * `znyx-runtime-<target>`. When the new name returns HTTP 404 the installer
+ * retries once with the legacy name, so older release tags keep installing.
  *
  * Failure model:
  *   - Unsupported platform: skip with guidance (exit 0); pip/Docker cover it.
@@ -19,7 +23,7 @@
  *   - Checksum verification failure: exit 1 and delete the binary, always.
  *
  * On unsupported platforms a clear message is printed directing the user to
- * `pip install znyx-runtime` or Docker. pip is never invoked automatically.
+ * `pip install znyx` or Docker. pip is never invoked automatically.
  */
 'use strict';
 
@@ -36,6 +40,16 @@ const RELEASE_BASE = `https://github.com/${GITHUB_REPO}/releases/download/v${VER
 const DOWNLOAD_TIMEOUT_MS = 60_000;
 
 const PLATFORM_MAP = {
+  'darwin-arm64': 'znyx-darwin-arm64',
+  'darwin-x64':   'znyx-darwin-x64',
+  'linux-x64':    'znyx-linux-x64',
+  'linux-arm64':  'znyx-linux-arm64',
+  'win32-x64':    'znyx-windows-x64.exe',
+};
+
+// Asset names used by releases published before the single `znyx` install.
+// Tried only when the current name is not found (HTTP 404).
+const LEGACY_PLATFORM_MAP = {
   'darwin-arm64': 'znyx-runtime-darwin-arm64',
   'darwin-x64':   'znyx-runtime-darwin-x64',
   'linux-x64':    'znyx-runtime-linux-x64',
@@ -50,12 +64,21 @@ const PLATFORM_MAP = {
 //
 // Populate at release time from the release workflow's checksum output, e.g.:
 //   KNOWN_CHECKSUMS['1.0.1'] = {
-//     'znyx-runtime-darwin-arm64': '<sha256>',
+//     'znyx-darwin-arm64': '<sha256>',
 //     ...
 //   };
 // Until an entry is present we fall back to the remote .sha256 (transport
 // integrity only) and print a warning so the gap is visible.
 const KNOWN_CHECKSUMS = {};
+
+/** Thrown when a download returns a non-200 status; carries the status code. */
+class HttpStatusError extends Error {
+  constructor(statusCode, url) {
+    super(`HTTP ${statusCode} downloading ${url}`);
+    this.name = 'HttpStatusError';
+    this.statusCode = statusCode;
+  }
+}
 
 /** Thrown when a downloaded binary does not match its expected checksum. */
 class ChecksumMismatchError extends Error {
@@ -71,6 +94,11 @@ function getPlatformKey() {
 
 function getBinaryName() {
   return PLATFORM_MAP[getPlatformKey()] || null;
+}
+
+/** The pre-`znyx` asset name for this platform, or null if there is none. */
+function getLegacyBinaryName() {
+  return LEGACY_PLATFORM_MAP[getPlatformKey()] || null;
 }
 
 function getBinaryPath() {
@@ -138,7 +166,9 @@ function download(url, dest) {
           return fetch(location);
         }
         if (res.statusCode !== 200) {
-          return reject(new Error(`HTTP ${res.statusCode} downloading ${u}`));
+          res.resume(); // drain the error body so the socket is released
+          file.destroy(); // a retry (legacy asset name) reopens the same path
+          return reject(new HttpStatusError(res.statusCode, u));
         }
         res.pipe(file);
         file.on('finish', () => file.close(resolve));
@@ -151,6 +181,29 @@ function download(url, dest) {
     }
     fetch(url);
   });
+}
+
+/**
+ * Download the first candidate asset that exists. `candidates` is the current
+ * asset name followed by the legacy one (when different). Only an HTTP 404
+ * moves on to the next candidate; any other failure (network error, 5xx,
+ * timeout) is thrown as is, so a flaky connection never silently installs an
+ * older binary. Returns the name that was downloaded.
+ */
+async function downloadFirstAvailable(candidates, releaseBase, dest, downloader = download) {
+  let lastError;
+  for (let i = 0; i < candidates.length; i++) {
+    try {
+      await downloader(`${releaseBase}/${candidates[i]}`, dest);
+      return candidates[i];
+    } catch (err) {
+      lastError = err;
+      const notFound = err instanceof HttpStatusError && err.statusCode === 404;
+      if (!notFound || i === candidates.length - 1) throw err;
+      console.log(`[znyx] ${candidates[i]} not found in this release; trying ${candidates[i + 1]}...`);
+    }
+  }
+  throw lastError;
 }
 
 function sha256File(filePath) {
@@ -185,31 +238,31 @@ async function main() {
       `\n[znyx] Unsupported platform: ${getPlatformKey()}\n` +
       `       Binary install is not available for this platform.\n\n` +
       `       Alternative install options:\n` +
-      `         pip install znyx-runtime\n` +
-      `         docker run znyx/runtime\n`
+      `         pip install znyx\n` +
+      `         docker run -p 8080:8080 znyx/znyx\n`
     );
     process.exit(0); // non-fatal - the package still installs
   }
 
-  const binaryUrl = `${RELEASE_BASE}/${binaryName}`;
-  const checksumUrl = `${RELEASE_BASE}/${binaryName}.sha256`;
+  const legacyName = getLegacyBinaryName();
+  const candidates = legacyName && legacyName !== binaryName ? [binaryName, legacyName] : [binaryName];
   const binaryDest = getBinaryPath();
   const checksumDest = binaryDest + '.sha256';
 
-  console.log(`[znyx] Downloading ZNYX Runtime v${VERSION} for ${getPlatformKey()}...`);
+  console.log(`[znyx] Downloading znyx v${VERSION} for ${getPlatformKey()}...`);
 
   try {
     // Ensure the destination dir exists (it may be absent in a fresh install).
     fs.mkdirSync(path.dirname(binaryDest), { recursive: true });
 
-    await download(binaryUrl, binaryDest);
+    const downloadedName = await downloadFirstAvailable(candidates, RELEASE_BASE, binaryDest);
 
     // Only fetch the release's .sha256 when no committed pin exists; a pinned
     // checksum must never be overridden by anything the release serves.
-    if (!hasPinnedChecksum(VERSION, binaryName)) {
-      await download(checksumUrl, checksumDest);
+    if (!hasPinnedChecksum(VERSION, downloadedName)) {
+      await download(`${RELEASE_BASE}/${downloadedName}.sha256`, checksumDest);
     }
-    const resolved = resolveExpectedChecksum(VERSION, binaryName, checksumDest);
+    const resolved = resolveExpectedChecksum(VERSION, downloadedName, checksumDest);
 
     verifyChecksum(binaryDest, resolved);
 
@@ -223,7 +276,7 @@ async function main() {
 
     if (err instanceof ChecksumMismatchError) {
       console.error(
-        `\n[znyx] SECURITY: checksum verification failed for ${binaryName}.\n` +
+        `\n[znyx] SECURITY: checksum verification failed for the downloaded ${binaryName} binary.\n` +
         `${err.message.replace(/^/gm, '       ')}\n` +
         `       The downloaded binary was removed and will not be installed.\n` +
         `       This may indicate a corrupted or tampered download.\n` +
@@ -233,13 +286,13 @@ async function main() {
     }
 
     console.error(
-      `\n[znyx] Failed to download the runtime binary: ${err.message}\n` +
+      `\n[znyx] Failed to download the znyx binary: ${err.message}\n` +
       `       Check network access to github.com and retry, or set\n` +
       `       ZNYX_SKIP_BINARY_DOWNLOAD=1 to install without the binary\n` +
       `       (offline / air-gapped installs).\n\n` +
       `       Alternative install options:\n` +
-      `         pip install znyx-runtime\n` +
-      `         docker run znyx/runtime\n`
+      `         pip install znyx\n` +
+      `         docker run -p 8080:8080 znyx/znyx\n`
     );
     process.exit(1);
   }
@@ -255,9 +308,13 @@ if (require.main === module) {
 module.exports = {
   KNOWN_CHECKSUMS,
   PLATFORM_MAP,
+  LEGACY_PLATFORM_MAP,
   ChecksumMismatchError,
+  HttpStatusError,
+  downloadFirstAvailable,
   getPlatformKey,
   getBinaryName,
+  getLegacyBinaryName,
   getBinaryPath,
   hasPinnedChecksum,
   resolveExpectedChecksum,

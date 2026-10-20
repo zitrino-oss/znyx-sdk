@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * znyx.js — CLI shim for @znyx/runtime.
+ * znyx.js - CLI shim for @znyx/runtime.
  *
- * Launches the platform-matched ZNYX Runtime binary that postinstall.js
+ * Launches the platform-matched `znyx` binary that postinstall.js
  * downloaded to ../bin/znyx-bin (znyx-bin.exe on Windows), forwarding all
  * arguments and streaming stdio. If the binary is missing (e.g. the
  * postinstall download failed or was skipped on an unsupported platform),
@@ -20,13 +20,13 @@ const binary = path.join(__dirname, `znyx-bin${ext}`);
 
 if (!fs.existsSync(binary)) {
   console.error(
-    `\n[znyx] Runtime binary not found at ${binary}\n` +
+    `\n[znyx] znyx binary not found at ${binary}\n` +
     `       The postinstall download may have failed or been skipped.\n\n` +
     `       Try reinstalling:\n` +
     `         npm install -g @znyx/runtime\n\n` +
     `       Or use an alternative install:\n` +
-    `         pip install znyx-runtime\n` +
-    `         docker run -p 8080:8080 znyx/runtime\n`
+    `         pip install znyx\n` +
+    `         docker run -p 8080:8080 znyx/znyx\n`
   );
   process.exit(1);
 }
@@ -34,7 +34,7 @@ if (!fs.existsSync(binary)) {
 const result = spawnSync(binary, process.argv.slice(2), { stdio: 'inherit' });
 
 if (result.error) {
-  console.error(`[znyx] Failed to launch runtime: ${result.error.message}`);
+  console.error(`[znyx] Failed to launch znyx: ${result.error.message}`);
   process.exit(1);
 }
 

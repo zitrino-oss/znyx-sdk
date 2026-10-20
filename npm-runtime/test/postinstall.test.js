@@ -12,7 +12,7 @@ const { test } = require('node:test');
 // main() only runs when the script is executed directly by npm.
 const installer = require('../scripts/postinstall.js');
 
-const BINARY_NAME = 'znyx-runtime-linux-x64';
+const BINARY_NAME = 'znyx-linux-x64';
 const VERSION = '9.9.9';
 
 function makeTempDir() {
@@ -112,4 +112,75 @@ test('ZNYX_SKIP_BINARY_DOWNLOAD skips the download and exits 0', () => {
   });
   assert.equal(result.status, 0);
   assert.match(result.stdout, /skipping binary download/);
+});
+
+test('release assets are named znyx-<target>, with the legacy znyx-runtime-<target> as fallback', () => {
+  assert.deepEqual(installer.PLATFORM_MAP, {
+    'darwin-arm64': 'znyx-darwin-arm64',
+    'darwin-x64': 'znyx-darwin-x64',
+    'linux-x64': 'znyx-linux-x64',
+    'linux-arm64': 'znyx-linux-arm64',
+    'win32-x64': 'znyx-windows-x64.exe',
+  });
+  for (const [key, name] of Object.entries(installer.PLATFORM_MAP)) {
+    assert.equal(installer.LEGACY_PLATFORM_MAP[key], name.replace(/^znyx-/, 'znyx-runtime-'));
+  }
+});
+
+test('downloads the new asset name when it exists', async () => {
+  const urls = [];
+  const name = await installer.downloadFirstAvailable(
+    ['znyx-linux-x64', 'znyx-runtime-linux-x64'], 'https://example.test/rel', '/dev/null',
+    async (url) => { urls.push(url); }
+  );
+  assert.equal(name, 'znyx-linux-x64');
+  assert.deepEqual(urls, ['https://example.test/rel/znyx-linux-x64']);
+});
+
+test('a 404 on the new asset name falls back to the legacy name', async () => {
+  const urls = [];
+  const originalLog = console.log;
+  console.log = () => {};
+  let name;
+  try {
+    name = await installer.downloadFirstAvailable(
+      ['znyx-linux-x64', 'znyx-runtime-linux-x64'], 'https://example.test/rel', '/dev/null',
+      async (url) => {
+        urls.push(url);
+        if (url.endsWith('/znyx-linux-x64')) throw new installer.HttpStatusError(404, url);
+      }
+    );
+  } finally {
+    console.log = originalLog;
+  }
+  assert.equal(name, 'znyx-runtime-linux-x64');
+  assert.equal(urls.length, 2);
+});
+
+test('only a 404 falls back: other failures are thrown, not retried', async () => {
+  let calls = 0;
+  await assert.rejects(
+    installer.downloadFirstAvailable(
+      ['znyx-linux-x64', 'znyx-runtime-linux-x64'], 'https://example.test/rel', '/dev/null',
+      async (url) => { calls++; throw new installer.HttpStatusError(503, url); }
+    ),
+    (err) => err instanceof installer.HttpStatusError && err.statusCode === 503
+  );
+  assert.equal(calls, 1);
+});
+
+test('a 404 on the last candidate is thrown', async () => {
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    await assert.rejects(
+      installer.downloadFirstAvailable(
+        ['znyx-linux-x64', 'znyx-runtime-linux-x64'], 'https://example.test/rel', '/dev/null',
+        async (url) => { throw new installer.HttpStatusError(404, url); }
+      ),
+      (err) => err.statusCode === 404
+    );
+  } finally {
+    console.log = originalLog;
+  }
 });
